@@ -1,46 +1,113 @@
-# Getting Started with Create React App
+# Celestial Viewer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A high-performance, modular, and scalable 3D celestial visualization web application powered by Viber3D.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- Interactive 3D star map with realistic celestial body rendering
+- Orbit visualization for planets and moons
+- Camera controls for navigation and focus
+- Jump point visualization
+- Points of interest
+- Route planning and calculation
+- Interdiction zone awareness
 
-### `npm start`
+## Technology Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- React (with TypeScript)
+- Three.js for 3D rendering
+- React Three Fiber & Drei for React/Three.js integration
+- Zustand for state management
+- WebGL for broad compatibility
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Project Structure
 
-### `npm test`
+The application follows a modular architecture with clear separation of concerns:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+src/
+  components/
+    StarMap/            # Main 3D visualization component
+    EntityViewer/       # Detailed view of selected entities
+    OrbitRenderer/      # Visualizes orbital paths
+    CameraController/   # Handles camera movement and focus
+    RoutePlanner/       # UI for planning routes
+  services/
+    DataLoaderService/  # Handles loading celestial data
+    AuthService/        # Authentication and user management
+    RouteCalculationService/ # Route planning algorithms
+    InterdictionService/     # Handles danger zones
+  stores/               # Zustand-based state management
+  utils/
+    coordinateUtils.ts  # Coordinate transformations
+    distanceUtils.ts    # Distance calculations
+    validationUtils.ts  # Data validation
+```
 
-### `npm run build`
+## Setup
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Clone the repository
+2. Install dependencies:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+3. Run the development server:
 
-### `npm run eject`
+```bash
+npm start
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Development
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The application is set up with a modern React workflow using TypeScript for type safety. The main 3D rendering is done using Three.js via React Three Fiber, which allows for a component-based approach to 3D rendering.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Configuration
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+Configuration is managed through environment variables in `.env` files:
 
-## Learn More
+- `REACT_APP_API_BASE_URL`: Base URL for API calls (if applicable)
+- `REACT_APP_DATA_PATH`: Path to the celestial data JSON file
+- `REACT_APP_DEFAULT_SYSTEM`: Default star system to load
+- `REACT_APP_VERSION`: Application version
+- `REACT_APP_TITLE`: Application title
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Global State Management
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+State is managed using Zustand, providing a simple and efficient way to handle global state without the boilerplate of Redux.
+
+Key state elements include:
+- Celestial system data
+- UI state (selected objects, etc.)
+- Camera state
+- Route planning state
+
+## Deployment
+
+The application can be built for production using:
+
+```bash
+npm run build
+```
+
+This creates a `build` directory with optimized production-ready files that can be served from any static file server.
+
+## Cross-Platform Support
+
+The application is designed to work on multiple platforms:
+- Desktop browsers (Chrome, Firefox, Safari, Edge)
+- Mobile browsers (iOS Safari, Android Chrome)
+- Tablet browsers
+
+Responsive design ensures proper functionality across various screen sizes.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Viber3D for the 3D game engine capabilities
+- Three.js for the 3D rendering library
+- React ecosystem for the UI framework

@@ -1,0 +1,283 @@
+{
+  "systemName": "Stanton",
+  "description": "Stanton is a corporate-owned star system with four super-Earths that have been terraformed for habitation.",
+  "starType": "Main Sequence G-type",
+  "coordinates": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+  },
+  "celestialBodies": [
+    {
+      "id": "stanton_star",
+      "name": "Stanton",
+      "type": "star",
+      "classification": "G-type",
+      "radius": 696340000,
+      "mass": 1.989e30,
+      "temperature": 5778,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 25.05
+    },
+    {
+      "id": "microtech",
+      "name": "microTech",
+      "type": "planet",
+      "parent": "stanton_star",
+      "classification": "super-Earth",
+      "radius": 1000000,
+      "mass": 5.972e24,
+      "position": {
+        "x": 22500000000,
+        "y": 0,
+        "z": 38968750000
+      },
+      "orbit": {
+        "semiMajorAxis": 45000000000,
+        "eccentricity": 0.01,
+        "inclination": 5.2,
+        "period": 317.35
+      },
+      "rotation": 4.35,
+      "atmosphere": true,
+      "hasRings": false,
+      "moons": [
+        {
+          "id": "calliope",
+          "name": "Calliope",
+          "radius": 260000,
+          "orbit": {
+            "semiMajorAxis": 3500000,
+            "period": 1.2
+          }
+        },
+        {
+          "id": "clio",
+          "name": "Clio",
+          "radius": 310000,
+          "orbit": {
+            "semiMajorAxis": 5200000,
+            "period": 2.1
+          }
+        },
+        {
+          "id": "euterpe",
+          "name": "Euterpe",
+          "radius": 190000,
+          "orbit": {
+            "semiMajorAxis": 6900000,
+            "period": 2.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "crusader",
+      "name": "Crusader",
+      "type": "planet",
+      "parent": "stanton_star",
+      "classification": "gas giant",
+      "radius": 7000000,
+      "mass": 1.898e27,
+      "position": {
+        "x": -19485000000,
+        "y": 0,
+        "z": -11250000000
+      },
+      "orbit": {
+        "semiMajorAxis": 22500000000,
+        "eccentricity": 0.02,
+        "inclination": 2.1,
+        "period": 113.14
+      },
+      "rotation": 10.55,
+      "atmosphere": true,
+      "hasRings": false,
+      "moons": [
+        {
+          "id": "daymar",
+          "name": "Daymar",
+          "radius": 295000,
+          "orbit": {
+            "semiMajorAxis": 18500000,
+            "period": 3.5
+          }
+        },
+        {
+          "id": "cellin",
+          "name": "Cellin",
+          "radius": 260000,
+          "orbit": {
+            "semiMajorAxis": 12500000,
+            "period": 2.2
+          }
+        },
+        {
+          "id": "yela",
+          "name": "Yela",
+          "radius": 313000,
+          "orbit": {
+            "semiMajorAxis": 24500000,
+            "period": 4.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "hurston",
+      "name": "Hurston",
+      "type": "planet",
+      "parent": "stanton_star",
+      "classification": "super-Earth",
+      "radius": 1000000,
+      "mass": 6.39e24,
+      "position": {
+        "x": -12727922500,
+        "y": 0,
+        "z": 12727922500
+      },
+      "orbit": {
+        "semiMajorAxis": 18000000000,
+        "eccentricity": 0.015,
+        "inclination": 3.7,
+        "period": 81.02
+      },
+      "rotation": 6.15,
+      "atmosphere": true,
+      "hasRings": false,
+      "moons": [
+        {
+          "id": "arial",
+          "name": "Arial",
+          "radius": 275000,
+          "orbit": {
+            "semiMajorAxis": 9500000,
+            "period": 1.6
+          }
+        },
+        {
+          "id": "aberdeen",
+          "name": "Aberdeen",
+          "radius": 320000,
+          "orbit": {
+            "semiMajorAxis": 14800000,
+            "period": 2.9
+          }
+        },
+        {
+          "id": "magda",
+          "name": "Magda",
+          "radius": 340000,
+          "orbit": {
+            "semiMajorAxis": 11300000,
+            "period": 1.9
+          }
+        },
+        {
+          "id": "ita",
+          "name": "Ita",
+          "radius": 295000,
+          "orbit": {
+            "semiMajorAxis": 12800000,
+            "period": 2.3
+          }
+        }
+      ]
+    },
+    {
+      "id": "arccorp",
+      "name": "ArcCorp",
+      "type": "planet",
+      "parent": "stanton_star",
+      "classification": "super-Earth",
+      "radius": 800000,
+      "mass": 5.12e24,
+      "position": {
+        "x": 14142135624,
+        "y": 0,
+        "z": 14142135624
+      },
+      "orbit": {
+        "semiMajorAxis": 20000000000,
+        "eccentricity": 0.02,
+        "inclination": 4.2,
+        "period": 94.49
+      },
+      "rotation": 5.85,
+      "atmosphere": true,
+      "hasRings": false,
+      "moons": [
+        {
+          "id": "lyria",
+          "name": "Lyria",
+          "radius": 288000,
+          "orbit": {
+            "semiMajorAxis": 9500000,
+            "period": 1.5
+          }
+        },
+        {
+          "id": "wala",
+          "name": "Wala",
+          "radius": 265000,
+          "orbit": {
+            "semiMajorAxis": 14200000,
+            "period": 2.7
+          }
+        }
+      ]
+    }
+  ],
+  "jumpPoints": [
+    {
+      "id": "stanton_to_pyro",
+      "name": "Stanton to Pyro",
+      "destinationSystem": "Pyro",
+      "position": {
+        "x": 30000000000,
+        "y": 5000000000,
+        "z": 2000000000
+      },
+      "size": "medium"
+    },
+    {
+      "id": "stanton_to_terra",
+      "name": "Stanton to Terra",
+      "destinationSystem": "Terra",
+      "position": {
+        "x": -28000000000,
+        "y": -3000000000,
+        "z": 8000000000
+      },
+      "size": "large"
+    }
+  ],
+  "pointsOfInterest": [
+    {
+      "id": "port_olisar",
+      "name": "Port Olisar",
+      "type": "spacestation",
+      "parent": "crusader",
+      "position": {
+        "x": -19485000000,
+        "y": 1200000,
+        "z": -11250000000
+      }
+    },
+    {
+      "id": "grim_hex",
+      "name": "Grim HEX",
+      "type": "spacestation",
+      "parent": "yela",
+      "position": {
+        "x": -19485000000,
+        "y": 240000,
+        "z": -11270500000
+      }
+    }
+  ]
+} 
