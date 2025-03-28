@@ -66,6 +66,20 @@ export class DataTransformer {
   }
 
   /**
+   * Determines if an entity's position should be treated as absolute coordinates
+   * 
+   * @param entity The entity to check
+   * @returns True if the entity's position should be treated as absolute
+   */
+  private isAbsolutePosition(entity: CelestialBody): boolean {
+    // STRICT RULE: An entity uses absolute coordinates ONLY IF it has no parent
+    // All entities with parents use relative coordinates, REGARDLESS of:
+    // - Entity type (star, planet, moon, etc.)
+    // - Position magnitude or any other heuristics
+    return !entity.parent;
+  }
+
+  /**
    * Preprocess entities to detect and correct misused absolute coordinates
    * This should be called before the main processing to correct data issues
    * @param system The celestial system to preprocess
@@ -95,6 +109,7 @@ export class DataTransformer {
     console.log(`Found ${entitiesWithParents.length} entities with parents and ${entitiesWithoutParents.length} without parents`);
     
     // Find entities with suspiciously large position values that have parents
+    // This is only for diagnostic purposes - we won't adjust positions automatically
     const suspiciousEntities = entitiesWithParents.filter(body => {
       // Calculate position magnitude
       const pos = body.position;
@@ -106,11 +121,7 @@ export class DataTransformer {
     });
     
     if (suspiciousEntities.length > 0) {
-      console.warn(`⚠️ Found ${suspiciousEntities.length} entities with suspiciously large position values despite having parents:`);
-      console.group('Entities with potentially incorrect coordinate usage');
-      
-      // Map to store corrected positions
-      const corrections = new Map<string, Vector3>();
+      console.warn(`⚠️ Found ${suspiciousEntities.length} entities with suspiciously large position values despite having parents (diagnostic only):`);
       
       // Group suspicious entities by parent for better analysis
       const suspiciousByParent = new Map<string, CelestialBody[]>();
@@ -124,101 +135,19 @@ export class DataTransformer {
           suspiciousByParent.set(parentId, []);
         }
         suspiciousByParent.get(parentId)!.push(entity);
-        
-        // Find the parent
-        const parentKey = entityMap.has(entity.parent) ? entity.parent : entity.parent.toLowerCase();
-        const parent = entityMap.get(parentKey);
-        
-        if (parent) {
-          const positionMagnitude = Math.sqrt(
-            entity.position.x * entity.position.x + 
-            entity.position.y * entity.position.y + 
-            entity.position.z * entity.position.z
-          );
-          
-          console.warn(`🚨 Entity "${entity.name}" (${entity.id}, type: ${entity.type}) appears to have absolute coordinates but is a child of "${parent.name}"`);
-          console.log(`  Current Position: (${entity.position.x}, ${entity.position.y}, ${entity.position.z})`);
-          console.log(`  Position Magnitude: ${this.formatDistanceValue(positionMagnitude)}`);
-          console.log(`  Parent Position: (${parent.position.x}, ${parent.position.y}, ${parent.position.z})`);
-          
-          // Calculate what the relative position should be if these were absolute coordinates
-          const correctedPosition: Vector3 = {
-            x: entity.position.x - parent.position.x,
-            y: entity.position.y - parent.position.y,
-            z: entity.position.z - parent.position.z
-          };
-          
-          // Store the correction
-          corrections.set(entity.id, correctedPosition);
-          
-          // Calculate corrected position magnitude
-          const correctedMagnitude = Math.sqrt(
-            correctedPosition.x * correctedPosition.x +
-            correctedPosition.y * correctedPosition.y +
-            correctedPosition.z * correctedPosition.z
-          );
-          
-          console.log(`  Corrected Relative Position: (${correctedPosition.x}, ${correctedPosition.y}, ${correctedPosition.z})`);
-          console.log(`  Corrected Position Magnitude: ${this.formatDistanceValue(correctedMagnitude)}`);
-          
-          // Log distance from parent (useful for validation)
-          console.log(`  Distance from parent: ${this.formatDistanceValue(correctedMagnitude)}`);
-          
-          // Apply validation checks based on entity types
-          if (entity.type.toLowerCase() === 'moon' && correctedMagnitude > 5000000) {
-            console.log(`  ⚠️ Moon's distance from planet seems too large: ${this.formatDistanceValue(correctedMagnitude)}`);
-          } else if (entity.type.toLowerCase() === 'station' && correctedMagnitude > 100000) {
-            console.log(`  ⚠️ Station's distance seems too large: ${this.formatDistanceValue(correctedMagnitude)}`);
-          } else if (entity.type.toLowerCase() === 'landingzone' && correctedMagnitude > 100000) {
-            console.log(`  ⚠️ Landing zone's distance from parent seems too large: ${this.formatDistanceValue(correctedMagnitude)}`);
-          }
-        } else {
-          console.warn(`⚠️ Entity "${entity.name}" has parent "${entity.parent}" but parent entity not found`);
-        }
       });
       
-      // Log summary of suspicious entities by parent
-      console.group('Summary of suspicious entities by parent:');
+      // Log summary of suspicious entities by parent (keeping this minimal)
+      console.log('Suspicious entities grouped by parent:');
       suspiciousByParent.forEach((entities, parentId) => {
         const parent = entityMap.get(parentId);
-        console.log(`${entities.length} suspicious children of ${parent?.name || parentId}:`);
-        entities.forEach(entity => {
-          console.log(`  - ${entity.name} (${entity.type})`);
-        });
+        console.log(`${entities.length} suspicious children of ${parent?.name || parentId}`);
       });
-      console.groupEnd();
-      
-      // Apply corrections to the original data
-      console.log('🔧 Applying corrections to entity positions...');
-      system.bodies.forEach(body => {
-        if (corrections.has(body.id)) {
-          const correctedPosition = corrections.get(body.id)!;
-          console.log(`✅ Correcting ${body.name} position to (${correctedPosition.x}, ${correctedPosition.y}, ${correctedPosition.z})`);
-          body.position = correctedPosition;
-        }
-      });
-      
-      console.log(`✅ Applied ${corrections.size} position corrections`);
-      console.groupEnd();
     } else {
       console.log('✅ No suspicious entity positions detected');
     }
     
     console.groupEnd();
-  }
-
-  /**
-   * Determines if an entity's position should be treated as absolute coordinates
-   * 
-   * @param entity The entity to check
-   * @returns True if the entity's position should be treated as absolute
-   */
-  private isAbsolutePosition(entity: CelestialBody): boolean {
-    // STRICT RULE: An entity uses absolute coordinates ONLY IF it has no parent
-    // All entities with parents use relative coordinates, REGARDLESS of:
-    // - Entity type (star, planet, moon, etc.)
-    // - Position magnitude or any other heuristics
-    return !entity.parent;
   }
 
   /**
@@ -230,34 +159,8 @@ export class DataTransformer {
   public processSystem(system: CelestialSystem): ProcessedCelestialSystem {
     console.group('⚙️ Processing celestial system');
     
-    // Step 1: Preprocess entities to detect and fix absolute coordinates misused as relative
+    // Step 1: Preprocess entities to detect and flag suspicious position values (for diagnostics only)
     this.preprocessEntitiesForAbsoluteCoordinates(system);
-    
-    // Step 2: Analyze position data format to determine whether to treat as absolute or relative coordinates
-    console.log('📊 Determining coordinate system format...');
-    this.analyzeEntityPositions(system.bodies);
-    
-    // Step 3: Calculate positioning statistics
-    let entitiesWithParents = system.bodies.filter(b => b.parent);
-    let likelyAbsoluteCount = 0;
-    let likelyRelativeCount = 0;
-    
-    entitiesWithParents.forEach(entity => {
-      const pos = entity.position;
-      const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-      
-      if (magnitude < 1000000) {
-        likelyRelativeCount++;
-      } else {
-        likelyAbsoluteCount++;
-      }
-    });
-    
-    // Decide whether to assume absolute coordinates by default
-    const assumeAbsoluteByDefault = likelyAbsoluteCount > likelyRelativeCount;
-    console.log(`🔧 Position strategy: ${assumeAbsoluteByDefault ? 
-      'Treating coordinates as absolute by default, checking individual entities' : 
-      'Treating coordinates as parent-relative by default, checking individual entities'}`);
     
     // Create a map for entity lookup by ID
     const entityMap = new Map<string, CelestialBody>();
@@ -291,50 +194,22 @@ export class DataTransformer {
         return null;
       }
       
-      // Debug specific key entities
-      const isKeyEntity = entity.name?.includes('Crusader') || 
-                          entity.name?.includes('Orison') || 
-                          entity.name?.includes('Stanton') ||
-                          entity.name?.includes('Hurston') ||
-                          entity.name?.includes('Aberdeen') ||
-                          entity.name?.includes('Arial') ||
-                          entity.name?.includes('Magda') ||
-                          entity.name?.includes('Ita') ||
-                          entity.name?.includes('Daymar') ||
-                          entity.name?.includes('Cellin') || 
-                          entity.name?.includes('Yela');
-      
-      if (isKeyEntity) {
-        console.log(`🔍 [Trace] Processing key entity: ${entity.name} (${entity.type})`);
-        console.log(`  ID: ${entity.id}`);
-        console.log(`  Position: (${entity.position.x}, ${entity.position.y}, ${entity.position.z})`);
-        console.log(`  Parent: ${entity.parent || 'none'}`);
-        
-        // Check if this position is suspiciously large for a child entity
-        const magnitude = Math.sqrt(
-          entity.position.x * entity.position.x + 
-          entity.position.y * entity.position.y + 
-          entity.position.z * entity.position.z
-        );
-        
-        if (magnitude > 10000000 && entity.parent) {
-          console.warn(`🚨 Suspected absolute coordinates used as relative for ${entity.name}: magnitude = ${magnitude}`);
-        }
-      }
+      // Debug specific key entities (minimal logging)
+      const isKeyEntity = entity.name?.includes('Kareah') || 
+                          entity.name?.includes('Crusader') || 
+                          entity.name?.includes('Stanton');
       
       // If entity has a parent, process the parent first
       let parentEntity: ProcessedEntity | null = null;
       if (entity.parent) {
         // Try to find the parent with exact ID first
         if (entityMap.has(entity.parent)) {
-          if (isKeyEntity) console.log(`  Parent found with exact ID match: ${entity.parent}`);
           parentEntity = computeAbsolutePosition(entity.parent);
         } 
         // If not found, try case-insensitive lookup
         else {
           const normalizedParentId = entity.parent.toLowerCase();
           if (entityMap.has(normalizedParentId)) {
-            if (isKeyEntity) console.log(`  Parent found with case-insensitive match: ${normalizedParentId}`);
             const parent = entityMap.get(normalizedParentId);
             if (parent) {
               parentEntity = computeAbsolutePosition(parent.id);
@@ -367,10 +242,10 @@ export class DataTransformer {
         absolutePositionCount++;
         
         if (isKeyEntity) {
-          console.log(`  Using position as absolute (no parent): (${absolutePosition.x}, ${absolutePosition.y}, ${absolutePosition.z})`);
+          console.log(`Entity ${entity.name} using position as absolute (no parent)`);
         }
       } else {
-        // Entity has a parent, position must be relative
+        // Entity has a parent, position MUST be relative
         if (!parentEntity) {
           // Parent reference exists but parent entity not found - warning case
           console.warn(`⚠️ Entity ${entity.name} has parent reference ${entity.parent} but parent not found - using position as absolute`);
@@ -378,6 +253,7 @@ export class DataTransformer {
           absolutePositionCount++;
         } else {
           // Normal case: Add parent's position to get absolute coordinates
+          // absolutePosition = parent.absolutePosition + entity.position
           absolutePosition = {
             x: parentEntity.position.x + entity.position.x,
             y: parentEntity.position.y + entity.position.y,
@@ -386,8 +262,9 @@ export class DataTransformer {
           relativePositionCount++;
           
           if (isKeyEntity) {
-            console.log(`  Parent ${parentEntity.name} position: (${parentEntity.position.x}, ${parentEntity.position.y}, ${parentEntity.position.z})`);
+            console.log(`Entity ${entity.name} position: relative to ${parentEntity.name}`);
             console.log(`  Relative position: (${entity.position.x}, ${entity.position.y}, ${entity.position.z})`);
+            console.log(`  Parent position: (${parentEntity.position.x}, ${parentEntity.position.y}, ${parentEntity.position.z})`);
             console.log(`  Calculated absolute position: (${absolutePosition.x}, ${absolutePosition.y}, ${absolutePosition.z})`);
             
             // Calculate distance from parent (for debugging)
@@ -396,21 +273,9 @@ export class DataTransformer {
               Math.pow(entity.position.y, 2) + 
               Math.pow(entity.position.z, 2)
             );
-            console.log(`  Distance from parent (relative): ${this.formatDistanceValue(distance)}`);
+            console.log(`  Distance from parent: ${this.formatDistanceValue(distance)}`);
           }
         }
-      }
-      
-      // Check if position is suspiciously close to origin
-      if (
-        Math.abs(absolutePosition.x) < 100000 &&
-        Math.abs(absolutePosition.y) < 100000 &&
-        Math.abs(absolutePosition.z) < 100000 &&
-        entity.name !== "Stanton" && // Exclude the star which should be at origin
-        entity.type.toLowerCase() !== "star" // Exclude all stars
-      ) {
-        console.warn(`⚠️ Entity "${entity.name}" appears to be incorrectly located at or near system center:`, absolutePosition);
-        console.log(`  Parent: ${entity.parent}, Type: ${entity.type}, Relative Position:`, entity.position);
       }
       
       // Create processed entity
@@ -439,29 +304,13 @@ export class DataTransformer {
       const bodyType = processedEntity.entityType.toLowerCase();
       processedTypes[bodyType] = (processedTypes[bodyType] || 0) + 1;
       
-      // Log the resolution path
-      if (isKeyEntity || entity.type.toLowerCase() === 'station' || entity.type.toLowerCase() === 'moon' || 
-          entity.type.toLowerCase() === 'lagrangepoint') {
-        console.log(`[Trace] ${entity.name} → Parent: ${entity.parent || 'none'} → ` +
-          `Relative: ${JSON.stringify(entity.position)} → Absolute: ${JSON.stringify(absolutePosition)}`);
-        
-        if (parentEntity) {
-          const absDist = Math.sqrt(
-            Math.pow(absolutePosition.x - parentEntity.position.x, 2) + 
-            Math.pow(absolutePosition.y - parentEntity.position.y, 2) + 
-            Math.pow(absolutePosition.z - parentEntity.position.z, 2)
-          );
-          console.log(`  Absolute distance from parent: ${this.formatDistanceValue(absDist)}`);
-        }
-      }
-      
       return processedEntity;
     };
     
     // Process all entities recursively
     const processedBodies: ProcessedEntity[] = [];
     
-    console.log('🧩 Recursively processing hierarchy');
+    console.log('🧩 Processing celestial hierarchy');
     system.bodies.forEach(body => {
       try {
         const processed = computeAbsolutePosition(body.id);
@@ -532,18 +381,7 @@ export class DataTransformer {
    *             This magnitude-based heuristic is unreliable and has been replaced by isAbsolutePosition().
    */
   private isLikelyAbsolutePosition(position: Vector3): boolean {
-    console.warn("⚠️ isLikelyAbsolutePosition is deprecated - use isAbsolutePosition instead");
-    // Position magnitude is no longer used to determine coordinate systems.
-    // We now strictly follow the rule: if an entity has a parent, its position is relative.
-    
-    // This method remains only for backward compatibility but should not be used.
-    const magnitude = Math.sqrt(
-      position.x * position.x + 
-      position.y * position.y + 
-      position.z * position.z
-    );
-    
-    return magnitude > 10000000;
+    throw new Error("isLikelyAbsolutePosition is deprecated and should not be used. Use isAbsolutePosition instead.");
   }
 
   /**
@@ -927,40 +765,33 @@ export class DataTransformer {
     
     // Report anomalies
     if (anomalies.length > 0) {
-      console.warn(`⚠️ Found ${anomalies.length} entities with unusual distances from their parents:`);
+      console.warn(`⚠️ Found ${anomalies.length} entities with unusual distances from their parents`);
       
-      // Group anomalies by parent type
-      const anomaliesByParentType: Record<string, typeof anomalies> = {};
-      
-      anomalies.forEach(anomaly => {
-        const parentType = anomaly.parent.entityType;
-        if (!anomaliesByParentType[parentType]) {
-          anomaliesByParentType[parentType] = [];
-        }
-        anomaliesByParentType[parentType].push(anomaly);
-      });
-      
-      // Log grouped by parent type
-      Object.entries(anomaliesByParentType).forEach(([parentType, typeAnomalies]) => {
-        console.group(`📊 ${parentType} parents with unusual child distances (${typeAnomalies.length}):`);
-        
-        typeAnomalies.forEach(anomaly => {
-          console.log(`🚨 ${anomaly.child.name} (${anomaly.child.entityType}) is ${this.formatDistanceValue(anomaly.distance)} from parent ${anomaly.parent.name}`);
-          console.log(`   Expected max: ${this.formatDistanceValue(anomaly.expectedMax)}`);
-          
-          // Calculate what the relative position should be (for reference)
-          const relativePosition = {
-            x: anomaly.child.position.x - anomaly.parent.position.x,
-            y: anomaly.child.position.y - anomaly.parent.position.y,
-            z: anomaly.child.position.z - anomaly.parent.position.z
-          };
-          
-          console.log(`   Relative position: (${relativePosition.x}, ${relativePosition.y}, ${relativePosition.z})`);
-          console.log(`   Original position: (${anomaly.child.metadata.originalPosition.x}, ${anomaly.child.metadata.originalPosition.y}, ${anomaly.child.metadata.originalPosition.z})`);
-        });
-        
+      // Check for Security Post Kareah specifically since it was mentioned as problematic
+      const kareahAnomaly = anomalies.find(a => a.child.name.includes('Kareah'));
+      if (kareahAnomaly) {
+        console.group("🔍 Security Post Kareah positioning issue detected:");
+        console.log(`Security Post Kareah is ${this.formatDistanceValue(kareahAnomaly.distance)} from its parent ${kareahAnomaly.parent.name}`);
+        console.log(`Expected maximum distance: ${this.formatDistanceValue(kareahAnomaly.expectedMax)}`);
+        console.log(`Parent position: (${kareahAnomaly.parent.position.x}, ${kareahAnomaly.parent.position.y}, ${kareahAnomaly.parent.position.z})`);
+        console.log(`Kareah absolute position: (${kareahAnomaly.child.position.x}, ${kareahAnomaly.child.position.y}, ${kareahAnomaly.child.position.z})`);
+        console.log(`Kareah original relative position: (${kareahAnomaly.child.metadata.originalPosition.x}, ${kareahAnomaly.child.metadata.originalPosition.y}, ${kareahAnomaly.child.metadata.originalPosition.z})`);
+        console.log(`Position magnitude: ${this.formatDistanceValue(kareahAnomaly.child.metadata.positionMagnitude)}`);
         console.groupEnd();
+      }
+      
+      // Group anomalies by parent type for easier analysis
+      console.group('Summary of anomalies by parent type:');
+      const anomaliesByParentType: Record<string, number> = {};
+      anomalies.forEach(a => {
+        const type = a.parent.entityType;
+        anomaliesByParentType[type] = (anomaliesByParentType[type] || 0) + 1;
       });
+      
+      Object.entries(anomaliesByParentType).forEach(([type, count]) => {
+        console.log(`${count} anomalies with ${type} parents`);
+      });
+      console.groupEnd();
     } else {
       console.log('✅ All entity distances appear reasonable');
     }
@@ -980,15 +811,18 @@ export class DataTransformer {
 
   /**
    * Analyze a batch of celestial bodies to identify potential positioning inconsistencies
-   * and determine if they appear to be using absolute or relative coordinates
    * 
    * @param bodies List of celestial bodies to analyze
-   * @returns Analysis report with recommendations
    */
   public analyzeEntityPositions(bodies: CelestialBody[]): void {
-    // This method now uses the strict parent-based rule for coordinate system classification
-    // rather than heuristics based on magnitude.
     console.group("🔍 Entity Position Analysis");
+    
+    // Count entities by parent relationship (the only thing that matters for coordinate classification)
+    const entitiesWithParents = bodies.filter(b => b.parent);
+    const entitiesWithoutParents = bodies.filter(b => !b.parent);
+    
+    console.log(`Found ${entitiesWithParents.length} entities with parents (using relative coordinates)`);
+    console.log(`Found ${entitiesWithoutParents.length} entities without parents (using absolute coordinates)`);
     
     // Group bodies by type for analysis
     const bodiesByType = new Map<string, CelestialBody[]>();
@@ -1000,115 +834,17 @@ export class DataTransformer {
       bodiesByType.get(type)!.push(body);
     });
     
-    // Count entities with and without parents
-    const entitiesWithParents = bodies.filter(b => b.parent);
-    const entitiesWithoutParents = bodies.filter(b => !b.parent);
-    
-    console.log(`Found ${entitiesWithParents.length} entities with parents (using relative coordinates)`);
-    console.log(`Found ${entitiesWithoutParents.length} entities without parents (using absolute coordinates)`);
-    
-    // Find the star(s) - typically should be at or near origin and without a parent
+    // Basic consistency check for stars (typically they should be at the root)
     const stars = bodiesByType.get('star') || [];
-    console.log(`Found ${stars.length} stars`);
-    
     if (stars.length > 0) {
-      stars.forEach(star => {
-        const pos = star.position;
-        const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-        console.log(`Star ${star.name} position: (${pos.x}, ${pos.y}, ${pos.z}), magnitude: ${magnitude}`);
-        
-        if (magnitude > 1000000) {
-          console.warn(`⚠️ Star ${star.name} appears to be far from origin - unusual for a star`);
-        }
-        
-        if (star.parent) {
-          console.warn(`⚠️ Star ${star.name} has a parent (${star.parent}) - unusual configuration`);
-        }
-      });
-    }
-    
-    // Analyze planets - should have star as parent
-    const planets = bodiesByType.get('planet') || [];
-    console.log(`Found ${planets.length} planets`);
-    
-    if (planets.length > 0) {
-      // Check for planets without parents
-      const planetsWithoutParents = planets.filter(p => !p.parent);
-      if (planetsWithoutParents.length > 0) {
-        console.warn(`⚠️ Found ${planetsWithoutParents.length} planets without parent references:`);
-        planetsWithoutParents.forEach(planet => {
-          console.log(`  - ${planet.name}`);
-        });
-      }
-      
-      // Calculate magnitudes for reference only
-      let totalMagnitude = 0;
-      planets.forEach(planet => {
-        const pos = planet.position;
-        const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-        totalMagnitude += magnitude;
-        
-        // Log potentially suspicious planets
-        if (magnitude > 200000000 && planet.parent) {
-          console.warn(`⚠️ Planet ${planet.name} has very large position values despite having parent ${planet.parent}`);
-          console.log(`  Position: (${pos.x}, ${pos.y}, ${pos.z}), magnitude: ${magnitude}`);
-        }
-      });
-      
-      const avgMagnitude = totalMagnitude / planets.length;
-      console.log(`Average planet position magnitude: ${avgMagnitude} (for reference only)`);
-    }
-    
-    // Analyze moons - must have planet parents
-    const moons = bodiesByType.get('moon') || [];
-    console.log(`Found ${moons.length} moons`);
-    
-    if (moons.length > 0) {
-      // Check for moons without parents
-      const moonsWithoutParents = moons.filter(m => !m.parent);
-      if (moonsWithoutParents.length > 0) {
-        console.warn(`⚠️ Found ${moonsWithoutParents.length} moons without parent references:`);
-        moonsWithoutParents.forEach(moon => {
-          console.log(`  - ${moon.name}`);
-        });
-      }
-      
-      // Find moons with suspiciously large position values
-      const moonsWithLargePositions = moons.filter(moon => {
-        const pos = moon.position;
-        const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-        return magnitude > 10000000; // 10 million units threshold
-      });
-      
-      if (moonsWithLargePositions.length > 0) {
-        console.warn(`⚠️ Found ${moonsWithLargePositions.length} moons with suspiciously large position values:`);
-        moonsWithLargePositions.forEach(moon => {
-          const pos = moon.position;
-          const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-          console.log(`  - ${moon.name} (parent: ${moon.parent}): magnitude ${magnitude}`);
-        });
+      const starsWithParents = stars.filter(s => s.parent);
+      if (starsWithParents.length > 0) {
+        console.warn(`⚠️ Found ${starsWithParents.length} stars with parent references - unusual configuration`);
       }
     }
     
-    // Check landing zones
-    const landingZones = bodies.filter(b => b.type.toLowerCase() === 'landingzone');
-    if (landingZones.length > 0) {
-      console.log(`Found ${landingZones.length} landing zones`);
-      
-      // Check if landing zones have parent references
-      const missingParents = landingZones.filter(lz => !lz.parent);
-      if (missingParents.length > 0) {
-        console.warn(`⚠️ ${missingParents.length} landing zones have no parent reference`);
-        missingParents.forEach(lz => {
-          console.warn(`  ${lz.name} missing parent reference`);
-        });
-      }
-    }
-    
-    // Analyze and group entities with suspiciously large position values
-    console.group("🔍 Entities with potentially incorrect coordinates");
-    
-    // Group by parent and type for better analysis
+    // Entities with suspiciously large position values despite having parents
+    // These might be incorrectly using absolute coordinates in relative context
     const suspiciousEntities = entitiesWithParents.filter(entity => {
       const pos = entity.position;
       const magnitude = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
@@ -1118,48 +854,27 @@ export class DataTransformer {
     if (suspiciousEntities.length > 0) {
       console.warn(`⚠️ Found ${suspiciousEntities.length} entities with suspiciously large position values despite having parents`);
       
-      // Group by entity type
-      const suspiciousByType = new Map<string, CelestialBody[]>();
-      suspiciousEntities.forEach(entity => {
-        const type = entity.type.toLowerCase();
-        if (!suspiciousByType.has(type)) {
-          suspiciousByType.set(type, []);
-        }
-        suspiciousByType.get(type)!.push(entity);
-      });
-      
-      // Log summary by type
-      suspiciousByType.forEach((entities, type) => {
-        console.log(`Found ${entities.length} suspicious ${type}s:`);
-        entities.forEach(entity => {
-          const magnitude = Math.sqrt(
-            entity.position.x * entity.position.x + 
-            entity.position.y * entity.position.y + 
-            entity.position.z * entity.position.z
-          );
-          console.log(`  - ${entity.name} (parent: ${entity.parent}): magnitude ${magnitude}`);
-        });
-      });
-    } else {
-      console.log('✅ No entities with suspicious position values detected');
+      // Specifically check for Security Post Kareah
+      const kareah = suspiciousEntities.find(e => e.name && e.name.includes('Kareah'));
+      if (kareah) {
+        console.log(`Security Post Kareah has parent: ${kareah.parent}`);
+        console.log(`Position: (${kareah.position.x}, ${kareah.position.y}, ${kareah.position.z})`);
+        
+        // Calculate position magnitude
+        const magnitude = Math.sqrt(
+          kareah.position.x * kareah.position.x + 
+          kareah.position.y * kareah.position.y + 
+          kareah.position.z * kareah.position.z
+        );
+        console.log(`Position magnitude: ${this.formatDistanceValue(magnitude)}`);
+      }
     }
     
-    console.groupEnd();
+    console.log('Position classification summary:');
+    console.log('- Positions are treated as ABSOLUTE only if entity has NO parent');
+    console.log('- Positions are treated as RELATIVE to parent if entity HAS parent');
+    console.log('- No exceptions based on magnitude or entity type');
     
-    // Final assessment and recommendations
-    console.group("📋 Coordinate System Assessment");
-    console.log(`Strict Parent-Based Rule: ${entitiesWithoutParents.length} entities use absolute coordinates, ${entitiesWithParents.length} use relative`);
-    
-    if (suspiciousEntities.length > 0) {
-      console.warn(`⚠️ ${suspiciousEntities.length} entities have suspicious position values and should be checked manually`);
-    }
-    
-    console.log('🔧 Recommendation: Following the strict parent-based rule for coordinates:');
-    console.log('  - All entities without parents use absolute coordinates');
-    console.log('  - All entities with parents use coordinates relative to their parent');
-    console.log('  - No exceptions based on magnitude or entity type');
-    
-    console.groupEnd();
     console.groupEnd();
   }
 
