@@ -6,6 +6,7 @@ import * as TWEEN from '@tweenjs/tween.js'; // Import TWEEN correctly
 import useAppStore from '../../stores/useAppStore';
 import { Vector3 as AppVector3 } from '../../utils/coordinateUtils'; // Rename to avoid clash with THREE.Vector3
 import { SCENE_SCALE, MIN_VISUAL_SIZE, getBaseIconSizeByType } from '../../config/constants'; // Import shared constants
+import { validatePosition } from '../../utils/scene';
 
 // --- Constants ---
 const ANIMATION_DURATION = 1200; // Duration in milliseconds for smooth transitions
@@ -24,13 +25,20 @@ const MAX_DISTANCE_FACTOR_REL = 100;  // How far can we zoom out relative to cal
 const DEFAULT_MIN_DISTANCE = 0.0001; // Allow very close system zoom if needed
 const DEFAULT_MAX_DISTANCE = 1000; 
 
+// Default focus distance calculation constants
+const BASE_DISTANCE_FACTOR = 1.5; // Base multiplier for entity size
+const MIN_FOCUS_DISTANCE = 0.01; // Minimum distance to prevent clipping
+const MAX_FOCUS_DISTANCE_FACTOR = 5; // Max distance relative to entity size
+const POINT_LIKE_DISTANCE = 0.5; // Fixed distance for point-like objects
+
 interface CameraControllerProps {
   enablePan?: boolean;
   enableZoom?: boolean;
   enableRotate?: boolean;
   autoRotate?: boolean;
   autoRotateSpeed?: number;
-  // min/maxDistance are now dynamic, so removed from props
+  setPos: (pos: THREE.Vector3) => void;
+  setTarget: (target: THREE.Vector3) => void;
 }
 
 const CameraController: React.FC<CameraControllerProps> = ({
@@ -39,7 +47,8 @@ const CameraController: React.FC<CameraControllerProps> = ({
   enableRotate = true,
   autoRotate = false,
   autoRotateSpeed = 1,
-  // minDistance and maxDistance are now managed dynamically
+  setPos,
+  setTarget,
 }) => {
   const { camera, gl } = useThree(); // Get gl renderer for OrbitControls
   const controlsRef = useRef<any>(null); // Initialize with null
@@ -48,8 +57,6 @@ const CameraController: React.FC<CameraControllerProps> = ({
     selectedCelestialBodyId,
     selectedPointOfInterestId,
     selectedJumpPointId,
-    setCameraPosition,
-    setCameraTarget,
     selectCelestialBody,
     selectPointOfInterest,
     selectJumpPoint,
@@ -65,6 +72,12 @@ const CameraController: React.FC<CameraControllerProps> = ({
   const isAnimatingRef = useRef(false); 
   // Track right clicks for double-click detection
   const lastRightClickTimeRef = useRef<number>(0);
+
+  // --- State for frame-based updates ---
+  const lastPos = useRef(new THREE.Vector3());
+  const lastTarget = useRef(new THREE.Vector3());
+  const threshold = 0.01; // Only update if changed by more than this amount
+  // -------------------------------------
 
   // Memoize getScaledPosition
   const getScaledPosition = useCallback((pos: AppVector3): THREE.Vector3 => {
@@ -135,8 +148,8 @@ const CameraController: React.FC<CameraControllerProps> = ({
     setCurrentMaxDistance(DEFAULT_MAX_DISTANCE);
     
     // Update store with final target (system center)
-    setCameraPosition({ x: systemViewPos.x / SCENE_SCALE, y: systemViewPos.y / SCENE_SCALE, z: systemViewPos.z / SCENE_SCALE });
-    setCameraTarget({ x: 0, y: 0, z: 0 });
+    setPos(systemViewPos);
+    setTarget(systemLookAt);
     
     // If not triggered by a deselect action already in progress, clear all selections
     // This prevents loops if a deselect action itself causes this reset
@@ -147,7 +160,7 @@ const CameraController: React.FC<CameraControllerProps> = ({
        if (selectPointOfInterest) selectPointOfInterest(null);
        if (selectJumpPoint) selectJumpPoint(null);
     }
-  }, [startAnimation, setCurrentMinDistance, setCurrentMaxDistance, setCameraPosition, setCameraTarget, selectCelestialBody, selectPointOfInterest, selectJumpPoint]);
+  }, [startAnimation, setCurrentMinDistance, setCurrentMaxDistance, setPos, setTarget, selectCelestialBody, selectPointOfInterest, selectJumpPoint]);
 
   // --- Effect to determine target and trigger animation ---
   useEffect(() => {
@@ -270,8 +283,8 @@ const CameraController: React.FC<CameraControllerProps> = ({
       console.log(`[DEBUG] useEffect (Focus): Setting distances: min=${finalMinD.toFixed(6)}, max=${finalMaxD.toFixed(6)}`);
       setCurrentMinDistance(finalMinD); 
       setCurrentMaxDistance(finalMaxD);
-      setCameraPosition({ x: targetCamPos.x / SCENE_SCALE, y: targetCamPos.y / SCENE_SCALE, z: targetCamPos.z / SCENE_SCALE });
-      setCameraTarget(targetEntityPosition); 
+      setPos(targetCamPos);
+      setTarget(targetLookAtVec);
     } else {
       // No selection ID set, or target position could not be determined for the set ID
       if (currentSelectionId) {
@@ -282,8 +295,7 @@ const CameraController: React.FC<CameraControllerProps> = ({
   }, [
     // Keep existing dependencies
     celestialSystem, selectedCelestialBodyId, selectedPointOfInterestId, 
-    selectedJumpPointId, camera, getScaledPosition, setCameraPosition, 
-    setCameraTarget, startAnimation, resetToSystemView 
+    selectedJumpPointId, camera, getScaledPosition, setPos, setTarget, startAnimation, resetToSystemView 
   ]);
 
   // --- Animation Loop (for TWEEN) ---
@@ -297,8 +309,21 @@ const CameraController: React.FC<CameraControllerProps> = ({
       // Basic check if camera/target moved slightly
       // You might need more robust checks depending on interaction types
       // Update store with current camera state
-      // setCameraPosition({ x: camera.position.x / SCENE_SCALE, y: camera.position.y / SCENE_SCALE, z: camera.position.z / SCENE_SCALE });
-      // setCameraTarget({ x: controls.target.x / SCENE_SCALE, y: controls.target.y / SCENE_SCALE, z: controls.target.z / SCENE_SCALE });
+      const currentPos = camera.position;
+      const currentTarget = controls.target;
+      
+      if (currentPos.distanceTo(lastPos.current) > threshold || 
+          currentTarget.distanceTo(lastTarget.current) > threshold) {
+        
+        const clonedPos = currentPos.clone();
+        const clonedTarget = currentTarget.clone();
+        
+        setPos(clonedPos);
+        setTarget(clonedTarget);
+        
+        lastPos.current.copy(clonedPos);
+        lastTarget.current.copy(clonedTarget);
+      }
     }
   });
 

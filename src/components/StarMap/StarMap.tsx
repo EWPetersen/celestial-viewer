@@ -430,47 +430,15 @@ const StarMap: React.FC = () => {
                enableZoom={true} 
                enableRotate={true} 
                autoRotate={false} // Configure as needed
+               // Pass state setters down
+               setPos={setCurrentCameraPosition} 
+               setTarget={setCurrentCameraTarget} 
             />
-            {/* Add the state reader component */}
-            <CameraStateReader setPos={setCurrentCameraPosition} setTarget={setCurrentCameraTarget} />
           </Suspense>
         </Canvas>
       </ErrorBoundary>
     </div>
   );
-};
-
-// Helper component to read camera state within Canvas context
-const CameraStateReader: React.FC<{ 
-  setPos: (pos: THREE.Vector3) => void, 
-  setTarget: (target: THREE.Vector3) => void 
-}> = ({ setPos, setTarget }) => {
-  const { camera } = useThree();
-  const controls = (useThree().controls as any); // Access controls contextually
-  const lastPos = useRef(new THREE.Vector3());
-  const lastTarget = useRef(new THREE.Vector3());
-  const threshold = 0.01; // Only update if changed by more than this amount
-
-  useFrame(() => {
-    const currentPos = camera.position;
-    const currentTarget = controls?.target;
-
-    if (currentTarget && 
-        (currentPos.distanceTo(lastPos.current) > threshold || 
-         currentTarget.distanceTo(lastTarget.current) > threshold)) {
-      
-      const clonedPos = currentPos.clone();
-      const clonedTarget = currentTarget.clone();
-      
-      setPos(clonedPos); 
-      setTarget(clonedTarget);
-      
-      lastPos.current.copy(clonedPos);
-      lastTarget.current.copy(clonedTarget);
-    }
-  });
-
-  return null; // This component doesn't render anything itself
 };
 
 // Simple error boundary component

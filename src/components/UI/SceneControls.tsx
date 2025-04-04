@@ -26,6 +26,11 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Log received camera props
+  useEffect(() => {
+    console.log('[SceneControls] Received props:', { cameraPosition, cameraTarget });
+  }, [cameraPosition, cameraTarget]);
+
   // Call onFilterChange whenever hiddenTypes changes
   useEffect(() => {
     onFilterChange(hiddenTypes);
