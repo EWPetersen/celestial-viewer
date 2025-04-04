@@ -89,8 +89,7 @@ const JumpPoint: React.FC<{
   name: string;
   position: Vector3;
   destinationSystem: string;
-  showLabel?: boolean;
-}> = ({ id, name, position, destinationSystem, showLabel = true }) => {
+}> = ({ id, name, position, destinationSystem }) => {
   const { selectedJumpPointId, selectJumpPoint } = useAppStore();
   const isSelected = selectedJumpPointId === id;
   
@@ -132,7 +131,6 @@ const JumpPoint: React.FC<{
         type="jumppoint"
         isSelected={isSelected}
         color="#ff00ff"
-        showLabel={showLabel}
       />
     </Suspense>
   );
@@ -144,8 +142,7 @@ const PointOfInterest: React.FC<{
   name: string;
   position: Vector3;
   type: string;
-  showLabel?: boolean;
-}> = ({ id, name, position, type, showLabel = true }) => {
+}> = ({ id, name, position, type }) => {
   const { selectedPointOfInterestId, selectPointOfInterest } = useAppStore();
   const isSelected = selectedPointOfInterestId === id;
   
@@ -196,7 +193,6 @@ const PointOfInterest: React.FC<{
         size={getSize()}
         type={type || 'unknown'}
         isSelected={isSelected}
-        showLabel={showLabel}
       />
     </Suspense>
   );
@@ -339,7 +335,6 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) 
             name={jump.name}
             position={jump.position}
             destinationSystem={jump.destinationSystem}
-            showLabel={showLabels}
           />
       ))}
       

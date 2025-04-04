@@ -29,17 +29,17 @@ const TYPE_SCALE_FACTORS = {
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.2,         // Further reduced from 0.3
-  planet: 0.1,       // DRASTICALLY reduced from 0.25
-  moon: 0.08,        // DRASTICALLY reduced from 0.2
-  station: 0.2,      // Slightly reduced from 0.25
-  reststop: 0.2,     // Slightly reduced from 0.25
-  landingzone: 0.15, // Slightly reduced from 0.2
-  commarray: 0.15,   // Slightly reduced from 0.2
-  outpost: 0.15,     // Slightly reduced from 0.2
-  jumppoint: 0.25,   // Slightly reduced from 0.3
-  lagrangepoint: 0.25,// Slightly reduced from 0.3
-  unknown: 0.2       // Slightly reduced from 0.3
+  star: 0.7,         // Further from the surface for stars
+  planet: 0.65,      // Further for planets
+  moon: 0.55,        // Default for moons
+  station: 0.50,     // Closer for stations
+  reststop: 0.50,    // Closer for reststops
+  landingzone: 0.45, // Closer for landing zones
+  commarray: 0.45,   // Closer for comm arrays
+  outpost: 0.45,     // Closer for outposts
+  jumppoint: 0.55,   // Default for jump points
+  lagrangepoint: 0.55,// Default for lagrange points
+  unknown: 0.55      // Default for unknown types
 };
 
 // Get object radius multiplier for different entity types
@@ -240,11 +240,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     z: safePosition.z * SCENE_SCALE
   }), [safePosition]);
   
-  // Dynamic Scaling Logic within useFrame
+  const scenePositionVec = useMemo(() => new THREE.Vector3(scenePosition.x, scenePosition.y, scenePosition.z), [scenePosition]);
+
+  // Dynamic Scaling Logic within useFrame for the mesh group
   useFrame(() => {
     if (!groupRef.current) return;
-    const distance = camera.position.distanceTo(groupRef.current.position);
-
+    const distance = camera.position.distanceTo(scenePositionVec);
+    
     // --- Select parameters based on type --- 
     let closeMultiplier = CLOSE_SCALE_MULTIPLIER;
     let farThreshold = FAR_THRESHOLD;
@@ -292,13 +294,14 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Store both the mesh scale and the raw distance for label scaling
     setCurrentVisualScale(finalScale);
     
-    // Log only when selected AND values have changed significantly
-    if (isCurrentlySelected && (name === 'Crusader' || name === 'Stanton' || type === 'lagrangepoint' || type === 'jumppoint')) {
+    // Log only when selected AND relevant types
+    if (isCurrentlySelected && (type === 'planet' || type === 'moon' || type === 'star')) {
       const scaleChanged = Math.abs(finalScale - lastLoggedScale) > 0.001;
       const distanceChanged = Math.abs(distance - lastLoggedDistance) > 0.01;
       
       if (scaleChanged || distanceChanged) {
-        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(4)}, meshScale=${finalScale.toFixed(4)}`);
+        // Log parent scale and label props
+        console.log(`[Renderer-${name}] ParentScale=${groupRef.current.scale.x.toFixed(4)}, LabelProps: finalLabelScale=${finalScale.toFixed(4)}, adjustedLabelDistance=${distance.toFixed(4)}`);
         
         // Update last logged values
         setLastLoggedScale(finalScale);
@@ -358,26 +361,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     // Only adjust distance for nearby large objects (planets, stars, moons)
     if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
-      // Use a gentler exponential increase for close distances
+      // Exponential increase in distance as we get very close
+      // Use a more aggressive scaling for very close distances
       if (cameraDistance < 0.1) {
-        // Cap the maximum distance ratio to prevent extreme values
-        // Even more restrictive cap for planets and moons
-        if (type === 'planet' || type === 'moon') {
-          distanceRatio = Math.min(1.5, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 2));
-        } else {
-          distanceRatio = Math.min(2.0, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 3));
-        }
+        // At extremely close distances (< 0.1), use an even more aggressive scaling
+        distanceRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
       } else {
-        if (type === 'planet' || type === 'moon') {
-          distanceRatio = Math.min(1.2, Math.max(1.0, 1.0 + (0.5 - cameraDistance) * 0.5));
-        } else {
-          distanceRatio = Math.min(1.5, Math.max(1.0, 1.0 + (0.5 - cameraDistance) * 0.8));
-        }
-      }
-      
-      // Debug log for distance ratio calculation
-      if (isCurrentlySelected || name === 'Stanton' || name === 'Crusader' || name === 'Hurston' || name === 'ArcCorp') {
-        console.log(`[DistanceRatio] ${name} (${type}): camera distance=${cameraDistance.toFixed(4)}, ratio=${distanceRatio.toFixed(2)}`);
+        distanceRatio = Math.max(1.0, Math.pow(0.1 / Math.max(0.001, cameraDistance), 0.5));
       }
     }
     
@@ -390,35 +380,41 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // No debug logging in render function - it would log on every render cycle
     
     return (
-      <group 
-        ref={groupRef}
-        position={[scenePosition.x, scenePosition.y, scenePosition.z]}
-        onClick={handleClick}
-      >
-        <CelestialMeshFactory 
-          type={type || 'unknown'}
-          size={scaledSize}
-          isSelected={isCurrentlySelected}
-          color={color}
-        />
+      <>
+        {/* Group for the scaled mesh ONLY */}
+        <group 
+          ref={groupRef}
+          position={scenePositionVec} // Position the group itself
+          onClick={handleClick}
+          // Scale is set in useFrame
+        >
+          <CelestialMeshFactory 
+            type={type || 'unknown'}
+            size={scaledSize} // Use pre-calculated scaledSize for mesh
+            isSelected={isCurrentlySelected}
+            color={color}
+          />
+        </group>
+
+        {/* Render the label OUTSIDE the scaled group */}
         {showLabel && (
           <EntityLabel
             text={displayLabel}
-            position={{ x: 0, y: 0, z: 0 }}
-            size={size}
+            position={scenePositionVec} // Pass world position directly
+            size={size} // Original size, might not be needed by label anymore
             color={getLabelColor()}
-            visualScale={finalLabelScale}
-            distance={adjustedLabelDistance}
+            // visualScale={finalLabelScale} // Let label handle its own constant size
+            distance={adjustedLabelDistance} // Pass calculated offset distance
             type={type}
             isSelected={isCurrentlySelected}
             debugInfo={debugInfo}
           />
         )}
-      </group>
+      </>
     );
   } catch (error) {
     console.error(`[EntityRenderer] Error rendering entity ${name}:`, error);
-    return <group position={[0, 0, 0]} />; // Fallback group
+    return null; // Render nothing on error
   }
 };
 

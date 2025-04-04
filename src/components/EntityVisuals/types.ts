@@ -22,10 +22,9 @@ export type EntityType =
  */
 export interface EntityLabelProps {
   text: string;
-  position: Vector3;
-  size: number;
+  position: THREE.Vector3;
+  size?: number;
   distance?: number;
-  visualScale?: number;
   color?: string;
   type?: string;
   renderPriority?: number;
