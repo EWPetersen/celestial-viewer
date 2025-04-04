@@ -55,6 +55,7 @@ export interface EntityRendererProps {
   isSelected?: boolean;
   selectable?: boolean;
   color?: string;
+  showLabel?: boolean;
 }
 
 /**

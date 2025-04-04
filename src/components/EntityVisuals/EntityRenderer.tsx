@@ -94,7 +94,8 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   type,
   isSelected = false,
   selectable = true,
-  color
+  color,
+  showLabel = true
 }) => {
   
   const { 
@@ -383,21 +384,23 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       >
         <CelestialMeshFactory 
           type={type || 'unknown'}
-          size={1}
+          size={scaledSize}
           isSelected={isCurrentlySelected}
           color={color}
         />
-        <EntityLabel 
-          text={displayLabel}
-          position={{ x: 0, y: 0, z: 0 }}
-          size={1} 
-          color={getLabelColor()}
-          visualScale={finalLabelScale}
-          distance={adjustedLabelDistance}
-          type={type}
-          isSelected={isCurrentlySelected}
-          debugInfo={debugInfo}
-        />
+        {showLabel && (
+          <EntityLabel
+            text={displayLabel}
+            position={{ x: 0, y: 0, z: 0 }}
+            size={size}
+            color={getLabelColor()}
+            visualScale={finalLabelScale}
+            distance={adjustedLabelDistance}
+            type={type}
+            isSelected={isCurrentlySelected}
+            debugInfo={debugInfo}
+          />
+        )}
       </group>
     );
   } catch (error) {

@@ -7,6 +7,10 @@ import { EntityLabelProps } from './types';
 // Minimum font size to ensure text is always visible
 const MIN_FONT_SIZE = 0.05;
 
+// Constants for label scaling
+const BASE_LABEL_SIZE = 0.15;
+const DISTANCE_COEFFICIENT = 0.1; // Controls how much distance affects the label size
+
 /**
  * Simplified label component that renders text directly attached to celestial bodies
  */
@@ -24,6 +28,7 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
 }) => {
   const safeText = text || 'Unnamed';
   const groupRef = useRef<THREE.Group>(null);
+  const textRef = useRef<any>(null);
   const { camera } = useThree();
   
   // State for tracking value changes - only log when these change significantly
@@ -31,11 +36,6 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
   const [lastLoggedDistance, setLastLoggedDistance] = useState<number>(0);
   const [lastLoggedAngle, setLastLoggedAngle] = useState<number>(0);
   const [lastLoggedFontSize, setLastLoggedFontSize] = useState<number>(0);
-  
-  // Text size is now influenced by visualScale but has a minimum size
-  // For planets, we'll ensure a slightly larger minimum size
-  const minFontSize = type === 'planet' || type === 'star' ? MIN_FONT_SIZE * 1.2 : MIN_FONT_SIZE;
-  const fontSize = Math.max(minFontSize, 0.15 * visualScale);
   
   // Get render priority based on entity type
   const getRenderPriority = (): number => {
@@ -48,9 +48,9 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     }
   };
 
-  // Billboard effect - make labels always face the camera
+  // Billboard effect and screen-space sizing
   useFrame(() => {
-    if (!groupRef.current) return;
+    if (!groupRef.current || !textRef.current) return;
     
     // Get vector from entity to camera
     const cameraPos = new THREE.Vector3().copy(camera.position);
@@ -75,28 +75,71 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     // Position the group at the correct height from the entity
     groupRef.current.position.set(0, distance, 0);
     
-    // Determine if entity is likely occluding the label from camera's view
+    // Calculate distance to camera (for screen-space sizing)
     const distanceToCamera = cameraPos.distanceTo(groupPos);
-    const worldPos = new THREE.Vector3();
-    groupRef.current.getWorldPosition(worldPos);
+    
+    // Get label size factors based on entity type
+    let typeSizeFactor = 1.0;
+    if (type === 'star') typeSizeFactor = 1.5;
+    else if (type === 'planet') typeSizeFactor = 1.3;
+    else if (type === 'moon') typeSizeFactor = 1.0;
+    else if (type === 'station') typeSizeFactor = 0.9;
+    else if (type === 'jumppoint') typeSizeFactor = 1.1;
+    
+    // Calculate constant screen-space size (similar to how Stanton label works)
+    // This maintains visual size regardless of camera distance
+    const screenSpaceFontSize = BASE_LABEL_SIZE * typeSizeFactor;
+    
+    // Apply the font size 
+    if (textRef.current.fontSize !== screenSpaceFontSize) {
+      textRef.current.fontSize = screenSpaceFontSize;
+    }
+    
+    // Calculate visibility based on distance
+    // Hide labels when too close to avoid cluttering or too far to be relevant
+    let opacity = 1.0;
+    
+    // Different object types have different visibility distances
+    const maxVisibleDistance = type === 'star' ? 15.0 : 
+                              type === 'planet' ? 10.0 : 
+                              type === 'moon' ? 5.0 : 3.0;
+    
+    const minVisibleDistance = type === 'star' ? 0.2 : 
+                              type === 'planet' ? 0.15 : 
+                              type === 'moon' ? 0.1 : 0.05;
+    
+    // Fade out when too close or too far
+    if (distanceToCamera > maxVisibleDistance) {
+      opacity = Math.max(0, 1.0 - (distanceToCamera - maxVisibleDistance) / 2.0);
+    } else if (distanceToCamera < minVisibleDistance) {
+      opacity = Math.max(0, distanceToCamera / minVisibleDistance);
+    }
+    
+    // Apply opacity 
+    if (textRef.current.material) {
+      textRef.current.material.opacity = opacity;
+    }
     
     // Only log when selected AND values have changed significantly
     if (isSelected) {
+      const worldPos = new THREE.Vector3();
+      groupRef.current.getWorldPosition(worldPos);
+      
       const positionChanged = worldPos.distanceTo(lastLoggedPosition) > 0.01;
       const distanceChanged = Math.abs(distanceToCamera - lastLoggedDistance) > 0.05;
       const angleChanged = Math.abs(rotationAngle - lastLoggedAngle) > 0.1;
-      const fontSizeChanged = Math.abs(fontSize - lastLoggedFontSize) > 0.01;
+      const fontSizeChanged = Math.abs(screenSpaceFontSize - lastLoggedFontSize) > 0.01;
       
       if (positionChanged || distanceChanged || angleChanged || fontSizeChanged) {
         console.log(`[Label Update] ${safeText}: pos=[${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}], 
           dist=${distanceToCamera.toFixed(4)}, angle=${rotationAngle.toFixed(2)}, 
-          fontSize=${fontSize.toFixed(4)}, ${debugInfo}`);
+          fontSize=${screenSpaceFontSize.toFixed(4)}, opacity=${opacity.toFixed(2)}, ${debugInfo}`);
         
         // Update last logged values
         setLastLoggedPosition(worldPos.clone());
         setLastLoggedDistance(distanceToCamera);
         setLastLoggedAngle(rotationAngle);
-        setLastLoggedFontSize(fontSize);
+        setLastLoggedFontSize(screenSpaceFontSize);
       }
     }
   });
@@ -105,8 +148,9 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     return (
       <group ref={groupRef}>
         <Text
+          ref={textRef}
           position={[0, 0, 0]} // Position at group origin
-          fontSize={fontSize}
+          fontSize={BASE_LABEL_SIZE} // Initial size, will be updated in useFrame
           color={color}
           anchorX="center"
           anchorY="bottom"

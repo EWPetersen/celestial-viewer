@@ -201,10 +201,11 @@ const PointOfInterest: React.FC<{
 // Props for SceneContent
 interface SceneContentProps {
   hiddenTypes: Set<EntityType>;
+  showLabels: boolean;
 }
 
 // Scene component
-const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
+const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) => {
   const { 
     celestialSystem, 
     selectedCelestialBodyId, 
@@ -299,6 +300,7 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
               size={body.radius * 2} // Convert radius to diameter
               type={body.type}
               isSelected={useAppStore.getState().selectedCelestialBodyId === body.id}
+              showLabel={showLabels}
             />
           </Suspense>
           
@@ -355,6 +357,7 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
           name={poi.name}
           position={poi.position}
           type={poi.type}
+          showLabel={showLabels}
         />
       ))}
       
@@ -366,6 +369,7 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
 const StarMap: React.FC = () => {
   const { celestialSystem, isLoading, error, selectCelestialBody } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
+  const [labelsVisible, setLabelsVisible] = useState<boolean>(true);
   // Add state for camera info
   const [currentCameraPosition, setCurrentCameraPosition] = useState<THREE.Vector3>(new THREE.Vector3());
   const [currentCameraTarget, setCurrentCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3());
@@ -376,9 +380,14 @@ const StarMap: React.FC = () => {
     selectCelestialBody(null); 
   };
 
-  // Callback for SceneControls
+  // Handle entity filter toggle
   const handleFilterChange = (newHiddenTypes: Set<EntityType>) => {
     setHiddenTypes(newHiddenTypes);
+  };
+
+  // Handle label visibility toggle
+  const handleToggleLabels = () => {
+    setLabelsVisible(prev => !prev);
   };
   
   // New callbacks for focus/reset to pass to SceneControls
@@ -410,6 +419,8 @@ const StarMap: React.FC = () => {
           onFilterChange={handleFilterChange} 
           onFocusEntity={handleFocusEntity} 
           onResetView={handleResetView}   
+          onToggleLabels={handleToggleLabels}
+          labelsVisible={labelsVisible}
           cameraPosition={currentCameraPosition}
           cameraTarget={currentCameraTarget}
         /> 
@@ -423,7 +434,7 @@ const StarMap: React.FC = () => {
           }}
         >
           <Suspense fallback={<FallbackObject name="Loading scene..." />}>
-            <SceneContent hiddenTypes={hiddenTypes} />
+            <SceneContent hiddenTypes={hiddenTypes} showLabels={labelsVisible} />
             {/* Render the new CameraController instead */}
             <CameraController 
                enablePan={true} 

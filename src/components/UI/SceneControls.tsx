@@ -8,6 +8,8 @@ interface SceneControlsProps {
   onFilterChange: (hiddenTypes: Set<EntityType>) => void;
   onFocusEntity: (entityId: string) => void;
   onResetView: () => void;
+  onToggleLabels: () => void;
+  labelsVisible: boolean;
   cameraPosition?: THREE.Vector3; // Make optional or provide default
   cameraTarget?: THREE.Vector3;   // Make optional or provide default
 }
@@ -19,6 +21,8 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   onFilterChange, 
   onFocusEntity, // Destructure new props
   onResetView,    // Destructure new props
+  onToggleLabels, // Destructure label toggle prop
+  labelsVisible,  // Destructure label visibility state
   cameraPosition, // Destructure camera props
   cameraTarget    // Destructure camera props
 }) => {
@@ -231,6 +235,18 @@ const SceneControls: React.FC<SceneControlsProps> = ({
               {type}
             </button>
           ))}
+          {/* Add Labels toggle button */}
+          <button 
+            style={{
+              ...buttonStyle,
+              backgroundColor: labelsVisible ? '#363' : '#633',
+              textDecoration: labelsVisible ? 'none' : 'line-through',
+            }}
+            onClick={onToggleLabels}
+            title="Toggle labels visibility"
+          >
+            labels
+          </button>
         </div>
         <button 
             style={{...buttonStyle, backgroundColor: '#663'}}
