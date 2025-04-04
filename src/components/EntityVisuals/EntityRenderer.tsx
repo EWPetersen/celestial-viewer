@@ -29,17 +29,17 @@ const TYPE_SCALE_FACTORS = {
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.3,         // Closer to the surface (reduced from 0.7)
-  planet: 0.25,      // Much closer to surface (reduced from 0.65)
-  moon: 0.2,         // Much closer (reduced from 0.55)
-  station: 0.25,     // Reduced from 0.5
-  reststop: 0.25,    // Reduced from 0.5
-  landingzone: 0.2,  // Reduced from 0.45
-  commarray: 0.2,    // Reduced from 0.45
-  outpost: 0.2,      // Reduced from 0.45
-  jumppoint: 0.3,    // Reduced from 0.55
-  lagrangepoint: 0.3,// Reduced from 0.55
-  unknown: 0.3       // Reduced from 0.55
+  star: 0.2,         // Further reduced from 0.3
+  planet: 0.1,       // DRASTICALLY reduced from 0.25
+  moon: 0.08,        // DRASTICALLY reduced from 0.2
+  station: 0.2,      // Slightly reduced from 0.25
+  reststop: 0.2,     // Slightly reduced from 0.25
+  landingzone: 0.15, // Slightly reduced from 0.2
+  commarray: 0.15,   // Slightly reduced from 0.2
+  outpost: 0.15,     // Slightly reduced from 0.2
+  jumppoint: 0.25,   // Slightly reduced from 0.3
+  lagrangepoint: 0.25,// Slightly reduced from 0.3
+  unknown: 0.2       // Slightly reduced from 0.3
 };
 
 // Get object radius multiplier for different entity types
@@ -361,9 +361,18 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       // Use a gentler exponential increase for close distances
       if (cameraDistance < 0.1) {
         // Cap the maximum distance ratio to prevent extreme values
-        distanceRatio = Math.min(3.0, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 5));
+        // Even more restrictive cap for planets and moons
+        if (type === 'planet' || type === 'moon') {
+          distanceRatio = Math.min(1.5, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 2));
+        } else {
+          distanceRatio = Math.min(2.0, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 3));
+        }
       } else {
-        distanceRatio = Math.min(2.0, Math.max(1.0, 1.0 + (0.5 - cameraDistance)));
+        if (type === 'planet' || type === 'moon') {
+          distanceRatio = Math.min(1.2, Math.max(1.0, 1.0 + (0.5 - cameraDistance) * 0.5));
+        } else {
+          distanceRatio = Math.min(1.5, Math.max(1.0, 1.0 + (0.5 - cameraDistance) * 0.8));
+        }
       }
       
       // Debug log for distance ratio calculation

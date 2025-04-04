@@ -8,7 +8,7 @@ import { EntityLabelProps } from './types';
 const MIN_FONT_SIZE = 0.05;
 
 // Constants for label scaling
-const BASE_LABEL_SIZE = 0.08; // Reduced from 0.15 to make labels smaller
+const BASE_LABEL_SIZE = 0.05; // DRASTICALLY reduced from 0.08
 const DISTANCE_COEFFICIENT = 0.1; // Controls how much distance affects the label size
 
 /**
@@ -73,18 +73,26 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     }
     
     // Position the group at the correct height from the entity
-    groupRef.current.position.set(0, distance, 0);
+    // Apply more specific positioning for each type
+    let finalDistance = distance;
+    if (type === 'planet') {
+      finalDistance = distance * 0.8; // Even closer for planets
+    } else if (type === 'moon') {
+      finalDistance = distance * 0.7; // Even closer for moons
+    }
+    
+    groupRef.current.position.set(0, finalDistance, 0);
     
     // Calculate distance to camera (for screen-space sizing)
     const distanceToCamera = cameraPos.distanceTo(groupPos);
     
     // Get label size factors based on entity type - MODIFIED FOR PLANETS/MOONS
     let typeSizeFactor = 1.0;
-    if (type === 'star') typeSizeFactor = 1.2;        // Reduced from 1.5
-    else if (type === 'planet') typeSizeFactor = 0.9; // Reduced from 1.3
-    else if (type === 'moon') typeSizeFactor = 0.7;   // Reduced from 1.0 
-    else if (type === 'station') typeSizeFactor = 0.7; // Reduced from 0.9
-    else if (type === 'jumppoint') typeSizeFactor = 0.9; // Reduced from 1.1
+    if (type === 'star') typeSizeFactor = 1.0;        // Reduced from 1.2
+    else if (type === 'planet') typeSizeFactor = 0.6; // Drastically reduced from 0.9
+    else if (type === 'moon') typeSizeFactor = 0.5;   // Reduced from 0.7
+    else if (type === 'station') typeSizeFactor = 0.7; // Keep the same
+    else if (type === 'jumppoint') typeSizeFactor = 0.9; // Keep the same
     
     // Calculate constant screen-space size (similar to how Stanton label works)
     // This maintains visual size regardless of camera distance
