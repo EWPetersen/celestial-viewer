@@ -29,17 +29,17 @@ const TYPE_SCALE_FACTORS = {
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.7,         // Further from the surface for stars
-  planet: 0.65,      // Further for planets
-  moon: 0.55,        // Default for moons
-  station: 0.50,     // Closer for stations
-  reststop: 0.50,    // Closer for reststops
-  landingzone: 0.45, // Closer for landing zones
-  commarray: 0.45,   // Closer for comm arrays
-  outpost: 0.45,     // Closer for outposts
-  jumppoint: 0.55,   // Default for jump points
-  lagrangepoint: 0.55,// Default for lagrange points
-  unknown: 0.55      // Default for unknown types
+  star: 0.3,         // Closer to the surface (reduced from 0.7)
+  planet: 0.25,      // Much closer to surface (reduced from 0.65)
+  moon: 0.2,         // Much closer (reduced from 0.55)
+  station: 0.25,     // Reduced from 0.5
+  reststop: 0.25,    // Reduced from 0.5
+  landingzone: 0.2,  // Reduced from 0.45
+  commarray: 0.2,    // Reduced from 0.45
+  outpost: 0.2,      // Reduced from 0.45
+  jumppoint: 0.3,    // Reduced from 0.55
+  lagrangepoint: 0.3,// Reduced from 0.55
+  unknown: 0.3       // Reduced from 0.55
 };
 
 // Get object radius multiplier for different entity types
@@ -358,13 +358,17 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     // Only adjust distance for nearby large objects (planets, stars, moons)
     if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
-      // Exponential increase in distance as we get very close
-      // Use a more aggressive scaling for very close distances
+      // Use a gentler exponential increase for close distances
       if (cameraDistance < 0.1) {
-        // At extremely close distances (< 0.1), use an even more aggressive scaling
-        distanceRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
+        // Cap the maximum distance ratio to prevent extreme values
+        distanceRatio = Math.min(3.0, Math.max(1.0, 1.0 + (0.1 - cameraDistance) * 5));
       } else {
-        distanceRatio = Math.max(1.0, Math.pow(0.1 / Math.max(0.001, cameraDistance), 0.5));
+        distanceRatio = Math.min(2.0, Math.max(1.0, 1.0 + (0.5 - cameraDistance)));
+      }
+      
+      // Debug log for distance ratio calculation
+      if (isCurrentlySelected || name === 'Stanton' || name === 'Crusader' || name === 'Hurston' || name === 'ArcCorp') {
+        console.log(`[DistanceRatio] ${name} (${type}): camera distance=${cameraDistance.toFixed(4)}, ratio=${distanceRatio.toFixed(2)}`);
       }
     }
     

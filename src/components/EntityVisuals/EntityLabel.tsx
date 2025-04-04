@@ -8,7 +8,7 @@ import { EntityLabelProps } from './types';
 const MIN_FONT_SIZE = 0.05;
 
 // Constants for label scaling
-const BASE_LABEL_SIZE = 0.15;
+const BASE_LABEL_SIZE = 0.08; // Reduced from 0.15 to make labels smaller
 const DISTANCE_COEFFICIENT = 0.1; // Controls how much distance affects the label size
 
 /**
@@ -78,13 +78,13 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     // Calculate distance to camera (for screen-space sizing)
     const distanceToCamera = cameraPos.distanceTo(groupPos);
     
-    // Get label size factors based on entity type
+    // Get label size factors based on entity type - MODIFIED FOR PLANETS/MOONS
     let typeSizeFactor = 1.0;
-    if (type === 'star') typeSizeFactor = 1.5;
-    else if (type === 'planet') typeSizeFactor = 1.3;
-    else if (type === 'moon') typeSizeFactor = 1.0;
-    else if (type === 'station') typeSizeFactor = 0.9;
-    else if (type === 'jumppoint') typeSizeFactor = 1.1;
+    if (type === 'star') typeSizeFactor = 1.2;        // Reduced from 1.5
+    else if (type === 'planet') typeSizeFactor = 0.9; // Reduced from 1.3
+    else if (type === 'moon') typeSizeFactor = 0.7;   // Reduced from 1.0 
+    else if (type === 'station') typeSizeFactor = 0.7; // Reduced from 0.9
+    else if (type === 'jumppoint') typeSizeFactor = 0.9; // Reduced from 1.1
     
     // Calculate constant screen-space size (similar to how Stanton label works)
     // This maintains visual size regardless of camera distance
@@ -118,6 +118,35 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     // Apply opacity 
     if (textRef.current.material) {
       textRef.current.material.opacity = opacity;
+    }
+    
+    // Enhanced debug logging - log more entities
+    const isDebugEntity = isSelected || 
+                         text === 'Stanton' || 
+                         text === 'Crusader' ||
+                         text === 'Hurston' ||
+                         text === 'ArcCorp' ||
+                         text.includes('L1') ||
+                         text.includes('Gateway');
+                         
+    if (isDebugEntity) {
+      const worldPos = new THREE.Vector3();
+      groupRef.current.getWorldPosition(worldPos);
+      
+      const entityPos = new THREE.Vector3();
+      if (groupRef.current.parent) {
+        groupRef.current.parent.getWorldPosition(entityPos);
+      }
+      
+      const heightAboveEntity = worldPos.y - entityPos.y;
+      
+      console.log(`[Label Debug] ${text} (${type}): 
+        - distance from camera: ${distanceToCamera.toFixed(4)}
+        - label size: ${screenSpaceFontSize.toFixed(4)}
+        - height above entity: ${heightAboveEntity.toFixed(4)}
+        - entity pos: [${entityPos.x.toFixed(2)}, ${entityPos.y.toFixed(2)}, ${entityPos.z.toFixed(2)}]
+        - label pos: [${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}]
+        - opacity: ${opacity.toFixed(2)}`);
     }
     
     // Only log when selected AND values have changed significantly
