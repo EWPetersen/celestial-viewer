@@ -1,8 +1,8 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Text } from '@react-three/drei';
-import { EntityRendererProps } from './types';
+import { EntityRendererProps, EntityType } from './types';
 import CelestialMeshFactory from './CelestialMeshFactory';
 import EntityLabel from './EntityLabel';
 import useAppStore from '../../stores/useAppStore';
@@ -14,8 +14,8 @@ const CLOSE_THRESHOLD = 0.01; // Distance within which objects use CLOSE_SCALE
 
 // Type-specific scale factors for default system view
 const TYPE_SCALE_FACTORS = {
-  star: 1.0,           // Larger star in system view
-  planet: 25.0,         // Much larger planets in system view
+  star: 0.75,           // Larger star in system view
+  planet: 30.0,         // Much larger planets in system view
   moon: 1.5,           // Larger moons for better visibility
   station: 1.0,        // Increased station visibility
   reststop: 1.0,       // Increased reststop visibility
@@ -25,6 +25,51 @@ const TYPE_SCALE_FACTORS = {
   jumppoint: 1.0,      // Increased jump point visibility
   lagrangepoint: 1.5,  // Increased lagrange point visibility
   unknown: 1.0         // Increased default for unknown types
+};
+
+// Type-specific label distances (how far labels are placed from entity center)
+const LABEL_DISTANCES = {
+  star: 0.7,         // Further from the surface for stars
+  planet: 0.65,      // Further for planets
+  moon: 0.55,        // Default for moons
+  station: 0.50,     // Closer for stations
+  reststop: 0.50,    // Closer for reststops
+  landingzone: 0.45, // Closer for landing zones
+  commarray: 0.45,   // Closer for comm arrays
+  outpost: 0.45,     // Closer for outposts
+  jumppoint: 0.55,   // Default for jump points
+  lagrangepoint: 0.55,// Default for lagrange points
+  unknown: 0.55      // Default for unknown types
+};
+
+// Get object radius multiplier for different entity types
+const ENTITY_RADIUS_MULTIPLIERS = {
+  star: 1.0,         // Stars have standard radius
+  planet: 1.0,       // Planets have standard radius
+  moon: 0.5,         // Moons are smaller
+  station: 0.3,      // Stations are much smaller
+  reststop: 0.3,     // Reststops are smaller
+  landingzone: 0.2,  // Landing zones are smaller
+  commarray: 0.2,    // Comm arrays are smaller
+  outpost: 0.2,      // Outposts are smaller
+  jumppoint: 0.4,    // Jump points are smaller
+  lagrangepoint: 0.3,// Lagrange points are smaller
+  unknown: 0.3       // Unknown types are smaller
+};
+
+// Label scaling factors by type - controls how label size changes with distance
+const LABEL_SCALE_FACTORS = {
+  star: 1.0,           // Normal sizing
+  planet: 1.2,         // Larger for planets
+  moon: 1.0,           // Normal sizing
+  station: 0.9,        // Slightly smaller
+  reststop: 0.9,       // Slightly smaller
+  landingzone: 0.85,   // Smaller
+  commarray: 0.85,     // Smaller
+  jumppoint: 1.0,      // Normal sizing
+  lagrangepoint: 0.9,  // Slightly smaller
+  outpost: 0.9,        // Slightly smaller
+  unknown: 1.0         // Default sizing
 };
 
 // Updated dynamic scale multipliers
@@ -52,13 +97,36 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   color
 }) => {
   
-  const { selectCelestialBody } = useAppStore();
+  const { 
+    selectCelestialBody, 
+    selectPointOfInterest,
+    selectJumpPoint,
+    selectedCelestialBodyId,
+    selectedPointOfInterestId,
+    selectedJumpPointId
+  } = useAppStore();
   const groupRef = useRef<THREE.Group>(null);
   const [hasError, setHasError] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
   const textRef = useRef<any>(null);
   const { camera } = useThree();
   const [currentVisualScale, setCurrentVisualScale] = useState(1.0); // State to hold the dynamic scale
+  
+  // State for tracking scale changes - only log when these change significantly
+  const [lastLoggedScale, setLastLoggedScale] = useState<number>(1.0);
+  const [lastLoggedDistance, setLastLoggedDistance] = useState<number>(0);
+  
+  // Normalize type
+  const normalizedType = useMemo(() => {
+      const validBodyTypes: EntityType[] = ['star', 'planet', 'moon'];
+      const validPoiTypes: EntityType[] = ['station', 'commarray', 'landingzone', 'lagrangepoint', 'reststop', 'outpost'];
+      const validJpTypes: EntityType[] = ['jumppoint'];
+
+      if (validBodyTypes.includes(type as EntityType)) return 'celestialBody';
+      if (validPoiTypes.includes(type as EntityType)) return 'pointOfInterest';
+      if (validJpTypes.includes(type as EntityType)) return 'jumpPoint';
+      return 'unknown';
+  }, [type]);
   
   // Validate props to prevent Three.js errors
   useEffect(() => {
@@ -101,23 +169,60 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
      calculatedSize // Remove MAX_VISUAL_SIZE clamping
   );
   
-  // Handle click on the celestial body
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+  // Determine if this specific entity is selected based on all selection IDs
+  const isCurrentlySelected = useMemo(() => {
+      return id === selectedCelestialBodyId || 
+             id === selectedPointOfInterestId || 
+             id === selectedJumpPointId;
+  }, [id, selectedCelestialBodyId, selectedPointOfInterestId, selectedJumpPointId]);
+
+  // Handle click - call the correct selection function
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (!selectable) return;
+
+    console.log(`[EntityRenderer] handleClick: Entity ID=${id}, Type Category=${normalizedType}, Prop Type=${type}`);
+
+    // Based on the normalized category, call the appropriate selector
     try {
-      e.stopPropagation();
-      if (selectable) {
-        console.log(`[EntityRenderer] handleClick: Attempting to select ID: ${id}`);
-        selectCelestialBody(id);
-        console.log(`[EntityRenderer] Simulating focus call after select for ID: ${id}`);
-      }
+        switch (normalizedType) {
+            case 'celestialBody':
+                console.log(`[EntityRenderer] Calling selectCelestialBody(${id})`);
+                selectCelestialBody(id);
+                break;
+            case 'pointOfInterest':
+                 if (selectPointOfInterest) {
+                    console.log(`[EntityRenderer] Calling selectPointOfInterest(${id})`);
+                    selectPointOfInterest(id);
+                 } else {
+                     console.warn("[EntityRenderer] selectPointOfInterest function not found in store!");
+                     selectCelestialBody(id); // Fallback if necessary, though problematic
+                 }
+                break;
+            case 'jumpPoint':
+                if (selectJumpPoint) {
+                    console.log(`[EntityRenderer] Calling selectJumpPoint(${id})`);
+                    selectJumpPoint(id);
+                } else {
+                    console.warn("[EntityRenderer] selectJumpPoint function not found in store!");
+                    selectCelestialBody(id); // Fallback
+                }
+                break;
+            default:
+                console.warn(`[EntityRenderer] Click on unhandled type category: ${normalizedType}`);
+                // Optionally select as celestial body as a default?
+                // selectCelestialBody(id);
+                break;
+        }
     } catch (error) {
-      console.error('[EntityRenderer] Error in click handler:', error);
+         console.error('[EntityRenderer] Error in click handler selection:', error);
     }
-  };
+
+  }, [id, selectable, normalizedType, type, selectCelestialBody, selectPointOfInterest, selectJumpPoint]);
 
   // Get label color based on entity type
-  const getLabelColor = (): string => {
-    switch (type) {
+  const getLabelColor = useCallback((): string => {
+    switch (type as EntityType) {
       case 'star': return '#ffff80';
       case 'planet': return '#80ff80';
       case 'moon': return '#ffffff';
@@ -125,7 +230,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       case 'jumppoint': return '#ff80ff';
       default: return '#ffffff';
     }
-  };
+  }, [type]);
   
   // Convert position from game coordinates to scene coordinates
   const scenePosition = useMemo(() => ({
@@ -179,8 +284,26 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     const baseVisualSize = Math.max(MIN_VISUAL_SIZE, getBaseIconSizeByType(type || 'unknown'));
     const dynamicSize = baseVisualSize * scaleMultiplier;
     const finalScale = Math.max(0.01, dynamicSize);
+    
+    // IMPORTANT: Set the mesh scale
     groupRef.current.scale.setScalar(finalScale);
+    
+    // Store both the mesh scale and the raw distance for label scaling
     setCurrentVisualScale(finalScale);
+    
+    // Log only when selected AND values have changed significantly
+    if (isCurrentlySelected && (name === 'Crusader' || name === 'Stanton' || type === 'lagrangepoint' || type === 'jumppoint')) {
+      const scaleChanged = Math.abs(finalScale - lastLoggedScale) > 0.001;
+      const distanceChanged = Math.abs(distance - lastLoggedDistance) > 0.01;
+      
+      if (scaleChanged || distanceChanged) {
+        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(4)}, meshScale=${finalScale.toFixed(4)}`);
+        
+        // Update last logged values
+        setLastLoggedScale(finalScale);
+        setLastLoggedDistance(distance);
+      }
+    }
   });
 
   // Create a fallback entity for error cases
@@ -207,38 +330,78 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
 
   try {
     const displayLabel = type === 'jumppoint' ? `${name} Gateway` : (name || 'Unnamed');
-    // We need the base visual size to position the label correctly
     const baseVisualSizeForLabel = Math.max(MIN_VISUAL_SIZE, getBaseIconSizeByType(type || 'unknown'));
+    
+    // Get the distance for label based on entity type
+    const baseLabelDistance = LABEL_DISTANCES[type as keyof typeof LABEL_DISTANCES] || LABEL_DISTANCES.unknown;
+    
+    // Get the radius multiplier for this entity type
+    const radiusMultiplier = ENTITY_RADIUS_MULTIPLIERS[type as keyof typeof ENTITY_RADIUS_MULTIPLIERS] || 
+      ENTITY_RADIUS_MULTIPLIERS.unknown;
+    
+    // Get the label scale factor based on entity type
+    const labelScaleFactor = LABEL_SCALE_FACTORS[type as keyof typeof LABEL_SCALE_FACTORS] || LABEL_SCALE_FACTORS.unknown;
+    
+    // Calculate final label scale based on visual scale and type-specific factor
+    const finalLabelScale = currentVisualScale * labelScaleFactor;
 
-    // Log the current visual scale for debugging this entity
-    if (isSelected) {
-      console.log(`[EntityRenderer] ${name} (${type}) current visual scale: ${currentVisualScale.toFixed(8)}`);
+    // Calculate object radius based on type
+    const objectRadius = radiusMultiplier * 0.5; // Base size of 0.5 units
+    
+    // Calculate distance to camera
+    const cameraDistance = camera.position.distanceTo(new THREE.Vector3(scenePosition.x, scenePosition.y, scenePosition.z));
+    
+    // Calculate distance ratio for label positioning
+    // This makes labels move further away when very close to avoid occlusion
+    let distanceRatio = 1.0;
+    
+    // Only adjust distance for nearby large objects (planets, stars, moons)
+    if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
+      // Exponential increase in distance as we get very close
+      // Use a more aggressive scaling for very close distances
+      if (cameraDistance < 0.1) {
+        // At extremely close distances (< 0.1), use an even more aggressive scaling
+        distanceRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
+      } else {
+        distanceRatio = Math.max(1.0, Math.pow(0.1 / Math.max(0.001, cameraDistance), 0.5));
+      }
     }
+    
+    // Calculate final adjusted label distance
+    const adjustedLabelDistance = baseLabelDistance * distanceRatio;
+    
+    // Build debug info string - only include necessary info
+    const debugInfo = `distanceRatio=${distanceRatio.toFixed(2)}`;
+
+    // No debug logging in render function - it would log on every render cycle
     
     return (
       <group 
         ref={groupRef}
         position={[scenePosition.x, scenePosition.y, scenePosition.z]}
         onClick={handleClick}
-        // Group scale is set dynamically in useFrame
       >
         <CelestialMeshFactory 
           type={type || 'unknown'}
-          size={1} // Pass base size 1; Group scale handles the rest
-          isSelected={isSelected}
+          size={1}
+          isSelected={isCurrentlySelected}
           color={color}
         />
         <EntityLabel 
           text={displayLabel}
-          position={{ x: 0, y: 0, z: 0 }} // Position is now relative to group
-          size={safeSize} // Pass the actual entity size, not the base visual size
+          position={{ x: 0, y: 0, z: 0 }}
+          size={1} 
           color={getLabelColor()}
-          visualScale={currentVisualScale}
+          visualScale={finalLabelScale}
+          distance={adjustedLabelDistance}
+          type={type}
+          isSelected={isCurrentlySelected}
+          debugInfo={debugInfo}
         />
       </group>
     );
   } catch (error) {
-    console.error(`[EntityRenderer] Error during rendering entity ${name}:`, error);
+    console.error(`[EntityRenderer] Error rendering entity ${name}:`, error);
     return <group position={[0, 0, 0]} />; // Fallback group
   }
 };

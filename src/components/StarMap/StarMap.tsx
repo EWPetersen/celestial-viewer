@@ -8,7 +8,7 @@ import { calculateScaleFactor } from '../../utils/distanceUtils';
 import { EntityRenderer, EntityType } from '../EntityVisuals';
 import { configureRenderer, validatePosition } from '../../utils/scene';
 import SceneControls from '../UI/SceneControls';
-import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import CameraController from '../CameraController/CameraController';
 
 // Fallback component for loading state or errors
 const FallbackObject = ({ name = "Loading..." }: { name?: string }) => (
@@ -125,7 +125,7 @@ const JumpPoint: React.FC<{
     <Suspense fallback={<FallbackObject name={name} />}>
       <EntityRenderer
         id={id}
-        name={`${name} (Jump to ${destinationSystem || 'Unknown'})`}
+        name={name}
         position={safePosition}
         size={size * 200000000} // Convert to appropriate scale
         type="jumppoint"
@@ -205,7 +205,12 @@ interface SceneContentProps {
 
 // Scene component
 const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
-  const { celestialSystem } = useAppStore();
+  const { 
+    celestialSystem, 
+    selectedCelestialBodyId, 
+    selectedPointOfInterestId, 
+    selectedJumpPointId 
+  } = useAppStore();
   const [hasError, setHasError] = useState(false);
   
   if (!celestialSystem) {
@@ -222,15 +227,68 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
     );
   }
   
+  // --- Determine the current visibility context --- 
+  let contextId: string | null = null;
+  let isSystemView = true; // Assume system view by default
+
+  if (selectedCelestialBodyId) {
+    contextId = selectedCelestialBodyId;
+    isSystemView = false;
+  } else if (selectedPointOfInterestId) {
+    const selectedPOI = celestialSystem.pointsOfInterest.find(p => p.id === selectedPointOfInterestId);
+    // If POI has a parent, focus on the parent body's context
+    contextId = selectedPOI?.parentId || null; 
+    isSystemView = !contextId; // If POI has no parent, might still be system view
+  } else if (selectedJumpPointId) {
+    const selectedJP = celestialSystem.jumpPoints.find(j => j.id === selectedJumpPointId);
+    // If JP has a parent, focus on the parent body's context
+    contextId = selectedJP?.parentId || null; 
+    isSystemView = !contextId; // If JP has no parent, might still be system view
+  }
+
+  // If no selection or selected item has no parent, context is the root (star)
+  if (isSystemView) {
+    contextId = celestialSystem.rootId;
+  }
+  // -------------------------------------------
+  
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[0, 0, 0]} intensity={1} color="#ffffff" />
+      <ambientLight intensity={0.5} />
+      <pointLight position={[0, 0, 0]} intensity={2} color="#ffffff" />
+      <directionalLight position={[10, 10, 10]} intensity={1} color="#ffffff" />
       <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} />
 
       {/* Render celestial bodies (Planets/Stars) */}
       {celestialSystem.celestialBodies
-        .filter(body => !hiddenTypes.has(body.type as EntityType)) // Filter based on hiddenTypes
+        // Filter based on context AND hiddenTypes
+        .filter(body => {
+          if (hiddenTypes.has(body.type as EntityType)) return false; // Check hidden first
+          
+          // Always show the root star
+          if (body.id === celestialSystem.rootId) return true;
+          
+          // In system view, show direct children of the star
+          if (isSystemView && body.parentId === celestialSystem.rootId) return true;
+          
+          if (!isSystemView) {
+            // Show the focused body itself
+            if (body.id === contextId) return true;
+            
+            // Show the parent of the focused body (if focusing on a moon)
+            const selectedBody = celestialSystem.celestialBodies.find(b => b.id === contextId);
+            if (selectedBody && selectedBody.parentId && body.id === selectedBody.parentId) return true;
+            
+            // Show siblings (other moons of the same parent) if focusing on a moon
+            if (selectedBody && selectedBody.parentId && body.parentId === selectedBody.parentId) return true;
+            
+            // Show children of the focused body (moons)
+            if (body.parentId === contextId) return true;
+          }
+          
+          // Hide other planets/moons
+          return false;
+        })
         .map((body) => (
         <React.Fragment key={body.id || Math.random().toString()}>
           <Suspense fallback={<FallbackObject name={body.name} />}>
@@ -245,7 +303,7 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
           </Suspense>
           
           {/* Render orbit if available and parent is not hidden */}
-          {body.orbit && body.parent && (
+          {body.orbit && body.parentId && (
             // TODO: Check if parent type is hidden? Might be complex.
             <OrbitLine
               semiMajorAxis={body.orbit.semiMajorAxis}
@@ -254,42 +312,21 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
             />
           )}
           
-          {/* Render moons */}
-          {body.moons
-            ?.filter(moon => !hiddenTypes.has('moon')) // Filter moons
-            .map((moon) => {
-            try {
-              // Calculate moon's position relative to its parent
-              const angle = Math.random() * Math.PI * 2; 
-              const x = body.position.x + (moon.orbit?.semiMajorAxis || 1000000) * Math.cos(angle);
-              const z = body.position.z + (moon.orbit?.semiMajorAxis || 1000000) * Math.sin(angle);
-              
-              const moonPosition = validatePosition({ x, y: body.position.y, z });
-              
-              return (
-                <Suspense key={moon.id || Math.random().toString()} fallback={<FallbackObject name={moon.name} />}>
-                  <EntityRenderer
-                    key={moon.id}
-                    id={moon.id}
-                    name={moon.name}
-                    position={moonPosition}
-                    size={moon.radius * 2} 
-                    type="moon"
-                    isSelected={useAppStore.getState().selectedCelestialBodyId === moon.id}
-                  />
-                </Suspense>
-              );
-            } catch (error) {
-              console.error(`Error rendering moon ${moon.name}:`, error);
-              return null;
-            }
-          })}
+          {/* Render moons - MOON LOGIC IS NOW HANDLED IN THE MAIN celestialBodies filter above */}
         </React.Fragment>
       ))}
       
       {/* Render jump points */}
-      {!hiddenTypes.has('jumppoint') && // Check if jump points are hidden
-        celestialSystem.jumpPoints.map((jump) => (
+      {celestialSystem.jumpPoints
+        .filter(jump => {
+          if (hiddenTypes.has('jumppoint')) return false;
+          // In system view, show JPs parented to the root (if any)
+          if (isSystemView && jump.parentId === celestialSystem.rootId) return true;
+          // In focused view, show JPs parented to the context ID
+          if (!isSystemView && jump.parentId === contextId) return true;
+          return false;
+        })
+        .map((jump) => (
           <JumpPoint
             key={jump.id || Math.random().toString()}
             id={jump.id}
@@ -301,140 +338,42 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes }) => {
       
       {/* Render points of interest */}
       {celestialSystem.pointsOfInterest
-        .filter(poi => !hiddenTypes.has(poi.type as EntityType)) // Filter POIs
+        // Filter based on context AND hiddenTypes
+        .filter(poi => {
+          const type = poi.type as EntityType;
+          if (hiddenTypes.has(type)) return false;
+          // In system view, show POIs parented to the root
+          if (isSystemView && poi.parentId === celestialSystem.rootId) return true;
+          // In focused view, show POIs parented to the context ID
+          if (!isSystemView && poi.parentId === contextId) return true;
+          return false;
+        })
         .map((poi) => (
-          <PointOfInterest
-            key={poi.id || Math.random().toString()}
-            id={poi.id}
-            name={poi.name}
-            position={poi.position}
-            type={poi.type}
-          />
+        <PointOfInterest
+          key={poi.id || Math.random().toString()}
+          id={poi.id}
+          name={poi.name}
+          position={poi.position}
+          type={poi.type}
+        />
       ))}
+      
     </>
   );
-};
-
-// Helper component to read camera state
-const CameraTracker: React.FC<{ 
-    setCameraPosition: (pos: THREE.Vector3) => void, 
-    setCameraTarget: (target: THREE.Vector3) => void,
-    // Allow the ref object to potentially hold null 
-    controlsRef: React.RefObject<OrbitControlsImpl | null> 
-}> = ({ setCameraPosition, setCameraTarget, controlsRef }) => {
-  useFrame((state) => {
-    // Clone position to avoid modifying the original state object directly if needed elsewhere
-    setCameraPosition(state.camera.position.clone());
-    // Get target from OrbitControls if available
-    if (controlsRef.current) {
-        // Clone target as well
-        setCameraTarget(controlsRef.current.target.clone());
-    }
-  });
-  return null; // This component doesn't render anything itself
 };
 
 // Main StarMap component
 const StarMap: React.FC = () => {
   const { celestialSystem, isLoading, error, selectCelestialBody } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
-  const controlsRef = useRef<OrbitControlsImpl>(null);
-  const [cameraPosition, setCameraPosition] = useState<THREE.Vector3>(new THREE.Vector3(0, 10, 50)); // Initial position
-  const [cameraTarget, setCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3(0, 0, 0)); // Initial target
-
-  // Placeholder camera control functions
-  const focusCameraOnEntity = (entityId: string) => {
-    let targetPosition: THREE.Vector3 | null = null;
-    let entityName = 'Unknown';
-    // Use a union type that includes CelestialBody for moons
-    let entityToFocus: CelestialBodyType | JumpPointType | PointOfInterestType | null = null;
-    let parentBodyForMoon: CelestialBodyType | null = null;
-
-    // Function to convert game coords to scene coords
-    const toSceneCoords = (pos: Vector3) => new THREE.Vector3(
-      pos.x * 0.0000000001,
-      pos.y * 0.0000000001,
-      pos.z * 0.0000000001
-    );
-
-    // --- Find Entity Logic ---
-    // Try finding in primary lists first
-    entityToFocus = 
-        celestialSystem?.celestialBodies.find(e => e.id === entityId) ??
-        celestialSystem?.jumpPoints.find(e => e.id === entityId) ??
-        celestialSystem?.pointsOfInterest.find(e => e.id === entityId) ??
-        null;
-
-    // If not found, search within moons
-    if (!entityToFocus && celestialSystem) {
-        for (const parentBody of celestialSystem.celestialBodies) {
-            const foundMoon = parentBody.moons?.find(m => m.id === entityId);
-            if (foundMoon) {
-                // Assume Moon structure is compatible enough with CelestialBodyType
-                entityToFocus = foundMoon as CelestialBodyType; 
-                parentBodyForMoon = parentBody; 
-                break; // Exit loop once moon is found
-            }
-        }
-    }
-
-    if (!entityToFocus) {
-        console.warn(`Entity with ID ${entityId} not found for focusing.`);
-        return;
-    }
-
-    entityName = entityToFocus.name; 
-
-    // --- Calculate Target Position --- 
-    if (parentBodyForMoon) { 
-        // Handle Moon Position Calculation
-        const moon = entityToFocus as CelestialBodyType; // Cast necessary for orbit access
-        const parentPos = validatePosition(parentBodyForMoon.position);
-        const angle = Math.random() * Math.PI * 2; 
-        const semiMajorAxis = moon.orbit?.semiMajorAxis || 1000000;
-        const x = parentPos.x + semiMajorAxis * Math.cos(angle);
-        const z = parentPos.z + semiMajorAxis * Math.sin(angle);
-        const moonGamePos = validatePosition({ x, y: parentPos.y, z });
-        targetPosition = toSceneCoords(moonGamePos);
-        console.warn("Focusing on moon with estimated position.");
-
-    } else { 
-        // Handle other entity types (Planet, Star, POI, JumpPoint)
-        // Check if the found entity has a 'position' property
-        if ('position' in entityToFocus && typeof entityToFocus.position === 'object' && entityToFocus.position !== null) {
-            targetPosition = toSceneCoords(validatePosition(entityToFocus.position as Vector3));
-        } else {
-            console.warn(`Could not determine position for non-moon entity ${entityName} (${entityId})`);
-            return; // Cannot focus if position is missing
-        }
-    }
-
-    // --- Camera Animation --- 
-    if (targetPosition && controlsRef.current) {
-      console.log(`TODO: Animate camera focus to ${entityName} at`, targetPosition);
-      controlsRef.current.target.copy(targetPosition);
-      controlsRef.current.update(); 
-    } else if (!targetPosition) {
-        console.warn(`Failed to calculate target position for ${entityName}`);
-    } else {
-        console.warn("Could not find controls ref for focusing.");
-    }
-  };
+  // Add state for camera info
+  const [currentCameraPosition, setCurrentCameraPosition] = useState<THREE.Vector3>(new THREE.Vector3());
+  const [currentCameraTarget, setCurrentCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3());
 
   const resetCameraView = () => {
-    if (controlsRef.current) {
-      console.log("TODO: Animate camera reset");
-      const camera = controlsRef.current.object as THREE.PerspectiveCamera;
-      // Use the same initial position as defined in the Canvas prop
-      const initialPosition = new THREE.Vector3(0, 0, 10.5); 
-      const initialTarget = new THREE.Vector3(0, 0, 0); 
-
-      controlsRef.current.target.copy(initialTarget);
-      camera.position.copy(initialPosition);
-      controlsRef.current.update();
-    } else {
-      console.warn("Could not find controls ref for resetting view.");
-    }
+    console.log("StarMap: Resetting view via state update.");
+    // CameraController will handle the reset when selectedCelestialBodyId becomes null
+    selectCelestialBody(null); 
   };
 
   // Callback for SceneControls
@@ -444,13 +383,11 @@ const StarMap: React.FC = () => {
   
   // New callbacks for focus/reset to pass to SceneControls
   const handleFocusEntity = (entityId: string) => {
-    selectCelestialBody(entityId); // Select first
-    focusCameraOnEntity(entityId);
+    selectCelestialBody(entityId); // Select first - CameraController will react
   };
 
   const handleResetView = () => {
-    selectCelestialBody(null); // Deselect
-    resetCameraView();
+    resetCameraView(); // Call our updated reset function
   };
   
   if (isLoading) {
@@ -473,38 +410,67 @@ const StarMap: React.FC = () => {
           onFilterChange={handleFilterChange} 
           onFocusEntity={handleFocusEntity} 
           onResetView={handleResetView}   
-          cameraPosition={cameraPosition} // Pass position state
-          cameraTarget={cameraTarget}     // Pass target state
+          cameraPosition={currentCameraPosition}
+          cameraTarget={currentCameraTarget}
         /> 
         
         <Canvas
           style={{ background: '#000' }}
-          camera={{ position: [0, 0, 10.5], fov: 60 }} 
+          // Explicitly set camera near and far planes
+          camera={{ fov: 60, near: 0.0001, far: 10000 }} // Significantly decrease near plane
           onCreated={({ gl }) => {
             configureRenderer(gl);
           }}
         >
           <Suspense fallback={<FallbackObject name="Loading scene..." />}>
             <SceneContent hiddenTypes={hiddenTypes} />
-            <OrbitControls 
-              ref={controlsRef} 
-              enablePan={true} 
-              enableZoom={true} 
-              enableRotate={true} 
-              // Set initial target (optional but good practice)
-              target={[0, 0, 0]} 
+            {/* Render the new CameraController instead */}
+            <CameraController 
+               enablePan={true} 
+               enableZoom={true} 
+               enableRotate={true} 
+               autoRotate={false} // Configure as needed
             />
-            {/* Add the tracker component */}
-            <CameraTracker 
-                setCameraPosition={setCameraPosition} 
-                setCameraTarget={setCameraTarget} 
-                controlsRef={controlsRef} 
-            />
+            {/* Add the state reader component */}
+            <CameraStateReader setPos={setCurrentCameraPosition} setTarget={setCurrentCameraTarget} />
           </Suspense>
         </Canvas>
       </ErrorBoundary>
     </div>
   );
+};
+
+// Helper component to read camera state within Canvas context
+const CameraStateReader: React.FC<{ 
+  setPos: (pos: THREE.Vector3) => void, 
+  setTarget: (target: THREE.Vector3) => void 
+}> = ({ setPos, setTarget }) => {
+  const { camera } = useThree();
+  const controls = (useThree().controls as any); // Access controls contextually
+  const lastPos = useRef(new THREE.Vector3());
+  const lastTarget = useRef(new THREE.Vector3());
+  const threshold = 0.01; // Only update if changed by more than this amount
+
+  useFrame(() => {
+    const currentPos = camera.position;
+    const currentTarget = controls?.target;
+
+    if (currentTarget && 
+        (currentPos.distanceTo(lastPos.current) > threshold || 
+         currentTarget.distanceTo(lastTarget.current) > threshold)) {
+      
+      const clonedPos = currentPos.clone();
+      const clonedTarget = currentTarget.clone();
+      
+      setPos(clonedPos); 
+      setTarget(clonedTarget);
+      
+      lastPos.current.copy(clonedPos);
+      lastTarget.current.copy(clonedTarget);
+    }
+  });
+
+  return null; // This component doesn't render anything itself
 };
 
 // Simple error boundary component

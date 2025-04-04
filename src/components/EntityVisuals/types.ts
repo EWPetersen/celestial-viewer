@@ -25,7 +25,12 @@ export interface EntityLabelProps {
   position: Vector3;
   size: number;
   distance?: number;
+  visualScale?: number;
   color?: string;
+  type?: string;
+  renderPriority?: number;
+  isSelected?: boolean;
+  debugInfo?: string;
 }
 
 /**

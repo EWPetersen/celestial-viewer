@@ -6,6 +6,7 @@ export interface CelestialSystem {
   systemName: string;
   description: string;
   starType: string;
+  rootId: string;
   coordinates: Vector3;
   celestialBodies: CelestialBody[];
   jumpPoints: JumpPoint[];
@@ -16,8 +17,8 @@ export interface CelestialBody {
   id: string;
   name: string;
   type: string;
+  parentId: string | null;
   classification?: string;
-  parent?: string;
   radius: number;
   mass?: number;
   temperature?: number;
@@ -49,17 +50,20 @@ export interface Orbit {
 export interface JumpPoint {
   id: string;
   name: string;
-  destinationSystem: string;
+  type: 'jumppoint';
+  parentId: string | null;
   position: Vector3;
-  size: string;
+  destinationSystem: string;
+  size: number;
 }
 
 export interface PointOfInterest {
   id: string;
   name: string;
   type: string;
-  parent: string;
+  parentId: string | null;
   position: Vector3;
+  size: number;
 }
 
 export interface Route {

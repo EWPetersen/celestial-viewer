@@ -3,15 +3,13 @@ import useAppStore, { CelestialBody, JumpPoint, PointOfInterest } from '../../st
 import { EntityType } from '../EntityVisuals';
 import * as THREE from 'three'; // Import THREE for Vector3 type
 
-// Props definition for SceneControls
+// Define the props for SceneControls
 interface SceneControlsProps {
   onFilterChange: (hiddenTypes: Set<EntityType>) => void;
-  // Add props for camera control
   onFocusEntity: (entityId: string) => void;
   onResetView: () => void;
-  // Add props for camera info
-  cameraPosition?: THREE.Vector3;
-  cameraTarget?: THREE.Vector3;
+  cameraPosition?: THREE.Vector3; // Make optional or provide default
+  cameraTarget?: THREE.Vector3;   // Make optional or provide default
 }
 
 // TODO: Implement camera focus logic in StarMap component
@@ -250,19 +248,14 @@ const SceneControls: React.FC<SceneControlsProps> = ({
       {/* Camera Info Section */}
       <div style={sectionStyle}>
           <h5 style={{...headingStyle, fontSize: '14px', marginBottom: '5px'}}>Camera Info</h5>
-          <p style={infoTextStyle}> 
-            Position: 
-            {cameraPosition ? 
-              `X: ${cameraPosition.x.toFixed(2)}, Y: ${cameraPosition.y.toFixed(2)}, Z: ${cameraPosition.z.toFixed(2)}` : 
-              'N/A'}
-          </p>
-          {/* Optionally display target/lookAt */}
-          <p style={infoTextStyle}>
-              Target: 
-              {cameraTarget ? 
-              `X: ${cameraTarget.x.toFixed(2)}, Y: ${cameraTarget.y.toFixed(2)}, Z: ${cameraTarget.z.toFixed(2)}` : 
-              'N/A'}
-          </p>
+          <div style={{ fontSize: '11px', color: '#ccc', marginBottom: '10px' }}>
+              <span style={{ display: 'block', marginBottom: '3px' }}>
+                  Camera Pos: {cameraPosition ? `X:${cameraPosition.x.toFixed(8)}, Y:${cameraPosition.y.toFixed(8)}, Z:${cameraPosition.z.toFixed(8)}` : 'N/A'}
+              </span>
+              <span style={{ display: 'block' }}>
+                  Camera Target: {cameraTarget ? `X:${cameraTarget.x.toFixed(8)}, Y:${cameraTarget.y.toFixed(8)}, Z:${cameraTarget.z.toFixed(8)}` : 'N/A'}
+              </span>
+          </div>
       </div>
       
     </div>

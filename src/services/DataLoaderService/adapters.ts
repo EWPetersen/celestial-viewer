@@ -12,13 +12,11 @@ export function entityToCelestialBody(
   entity: ProcessedEntity,
   systemData: SystemData
 ): CelestialBody {
-  const parentEntity = entity.parent ? systemData.entities[entity.parent] : null;
-  
   const celestialBody: CelestialBody = {
     id: entity.id,
     name: entity.name,
     type: entity.type,
-    parent: parentEntity?.name || undefined,
+    parentId: entity.parent,
     radius: entity.size / 2, // Convert diameter to radius
     position: {
       x: entity.absolutePosition.x,
@@ -42,13 +40,12 @@ export function entityToPointOfInterest(
   entity: ProcessedEntity,
   systemData: SystemData
 ): PointOfInterest {
-  const parentEntity = entity.parent ? systemData.entities[entity.parent] : null;
-  
   const poi: PointOfInterest = {
     id: entity.id,
     name: entity.name,
     type: entity.type,
-    parent: parentEntity?.name || '',
+    parentId: entity.parent,
+    size: entity.size,
     position: {
       x: entity.absolutePosition.x,
       y: entity.absolutePosition.y,
@@ -68,13 +65,15 @@ export function entityToJumpPoint(entity: ProcessedEntity): JumpPoint {
   const jumpPoint: JumpPoint = {
     id: entity.id,
     name: entity.name,
+    type: 'jumppoint',
+    parentId: entity.parent,
     destinationSystem: 'Unknown', // Would need additional data to determine this
     position: {
       x: entity.absolutePosition.x,
       y: entity.absolutePosition.y,
       z: entity.absolutePosition.z
     },
-    size: 'medium' // Default value, could be derived from entity data
+    size: entity.size
   };
   
   return jumpPoint;
@@ -163,6 +162,7 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
   const celestialSystem: CelestialSystem = {
     systemName: rootEntity.name,
     description: `The ${rootEntity.name} system`,
+    rootId: systemData.root,
     starType: 'G-type', // This would need to come from additional data
     coordinates: {
       x: rootEntity.absolutePosition.x,
