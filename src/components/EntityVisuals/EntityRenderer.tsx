@@ -15,7 +15,7 @@ const CLOSE_THRESHOLD = 0.001; //Distance within which objects use CLOSE_SCALE
 
 // Type-specific scale factors for default system view
 const TYPE_SCALE_FACTORS = {
-  star: 0.75,           // Larger star in system view
+  star: 10,           // Larger star in system view
   planet: 30.0,         // Much larger planets in system view
   moon: 1.5,           // Larger moons for better visibility
   station: 1.0,        // Increased station visibility
@@ -23,22 +23,22 @@ const TYPE_SCALE_FACTORS = {
   landingzone: 1.0,    // Increased landing zone visibility
   commarray: 1.0,      // Increased comm array visibility
   outpost: 1.0,        // Increased outpost visibility
-  jumppoint: 1.0,      // Increased jump point visibility
-  lagrangepoint: 1.5,  // Increased lagrange point visibility
+  jumppoint: 8.0,      // Increased jump point visibility
+  lagrangepoint: 6.0,   // Significantly increased for always-visible lagrange points
   unknown: 1.0         // Increased default for unknown types
 };
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.4,         // Further from the surface for stars
+  star: 0.008,         // Further from the surface for stars
   planet: 0.003,  // Further for planets
-  moon: 0.005,        // Default for moons
-  station: 0.005,    // Closer for stations
+  moon: 0.002,        // Default for moons
+  station: 0.01,    // Closer for stations
   reststop: 0.0050,    // Closer for reststops
   landingzone: 0.001, // Closer for landing zones
-  commarray: 0.001,   // Closer for comm arrays
+  commarray: 0.01,   // Closer for comm arrays
   outpost: 0.001,     // Closer for outposts
-  jumppoint: 0.9,   // Default for jump points
+  jumppoint: 0.09,   // Default for jump points
   lagrangepoint: 0.1,// Default for lagrange points
   unknown: 0.55      // Default for unknown types
 };
@@ -68,7 +68,7 @@ const LABEL_SCALE_FACTORS = {
   landingzone: 0.85,   // Smaller
   commarray: 0.85,     // Smaller
   jumppoint: 1.0,      // Normal sizing
-  lagrangepoint: 0.9,  // Slightly smaller
+  lagrangepoint: 1.5,  // Increased from 0.9 for better visibility
   outpost: 0.9,        // Slightly smaller
   unknown: 1.0         // Default sizing
 };
@@ -322,8 +322,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     // Calculate orbit radius using relative position
     const { x, y, z } = relativePosition;
-    return Math.sqrt(x*x + y*y + z*z) * SCENE_SCALE;
-  }, [relativePosition]);
+    const radius = Math.sqrt(x*x + y*y + z*z) * SCENE_SCALE;
+    console.log(`[DEBUG] Orbit for ${name}: relativePosition=(${x}, ${y}, ${z}), radius=${radius}`);
+    return radius;
+  }, [relativePosition, name]);
   
   // Check if orbit should be shown
   const shouldShowOrbit = useMemo(() => {
@@ -336,8 +338,36 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Don't show orbit for entities with zero relative position
     if (!orbitRadius || orbitRadius <= 0) return false;
     
-    return true;
+    // Only show orbits for specific entity types - now disabled as we use ringGeometry in StarMap
+    return false; // We're now using ringGeometry in StarMap, so disable these
   }, [showOrbits, parentPosition, orbitRadius]);
+
+  // Calculate the parent's scene position
+  const parentScenePosition = useMemo(() => {
+    if (!parentPosition) return null;
+    
+    return {
+      x: parentPosition.x * SCENE_SCALE,
+      y: parentPosition.y * SCENE_SCALE,
+      z: parentPosition.z * SCENE_SCALE
+    };
+  }, [parentPosition]);
+
+  // Calculate the angle of the object in the orbital plane
+  // This would ideally come from actual orbital parameters or simulation
+  const orbitalAngle = useMemo(() => {
+    if (!relativePosition) return 0;
+    
+    // Calculate orbital angle in radians (in XY plane)
+    return Math.atan2(relativePosition.y, relativePosition.x);
+  }, [relativePosition]);
+
+  // Debug log for parent position if available
+  useEffect(() => {
+    if (parentPosition) {
+      console.log(`[DEBUG] Parent position for ${name}: (${parentPosition.x}, ${parentPosition.y}, ${parentPosition.z})`);
+    }
+  }, [parentPosition, name]);
 
   // Create a fallback entity for error cases
   if (hasError) {
@@ -449,12 +479,12 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         )}
         
         {/* Render orbit path if conditions are met */}
-        {shouldShowOrbit && parentPosition && (
+        {shouldShowOrbit && parentScenePosition && (
           <OrbitPath
             center={{ 
-              x: parentPosition.x * SCENE_SCALE - scenePosition.x, 
-              y: parentPosition.y * SCENE_SCALE - scenePosition.y, 
-              z: parentPosition.z * SCENE_SCALE - scenePosition.z 
+              x: parentScenePosition.x - scenePosition.x, 
+              y: parentScenePosition.y - scenePosition.y, 
+              z: parentScenePosition.z - scenePosition.z 
             }}
             radius={orbitRadius}
             color={type === 'moon' ? '#4488aa' : '#335577'}

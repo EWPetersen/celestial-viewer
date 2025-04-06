@@ -318,10 +318,10 @@ const SceneControls: React.FC<SceneControlsProps> = ({
               <label style={{ display: 'block', marginBottom: '5px' }}>Camera Info:</label>
               <div style={infoTextStyle}>
                   <span>
-                      Position: {cameraPosition ? `X:${cameraPosition.x.toFixed(2)}, Y:${cameraPosition.y.toFixed(2)}, Z:${cameraPosition.z.toFixed(2)}` : 'N/A'}
+                      Position: {cameraPosition ? `X:${cameraPosition.x.toFixed(6)}, Y:${cameraPosition.y.toFixed(6)}, Z:${cameraPosition.z.toFixed(6)}` : 'N/A'}
                   </span>
                   <span style={{ display: 'block' }}>
-                      Target:   {cameraTarget ? `X:${cameraTarget.x.toFixed(2)}, Y:${cameraTarget.y.toFixed(2)}, Z:${cameraTarget.z.toFixed(2)}` : 'N/A'}
+                      Target:   {cameraTarget ? `X:${cameraTarget.x.toFixed(6)}, Y:${cameraTarget.y.toFixed(6)}, Z:${cameraTarget.z.toFixed(6)}` : 'N/A'}
                   </span>
               </div>
           </div>

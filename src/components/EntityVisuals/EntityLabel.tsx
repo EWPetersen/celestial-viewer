@@ -41,11 +41,11 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
   const getRenderPriority = (): number => {
     switch (type) {
       case 'planet': return 3000; // Highest priority
-      case 'star': return 2800;
+      case 'star': return 3000;
       case 'moon': return 2500;
       case 'station': return 2200;
       case 'lagrangepoint': return 2800;
-      case 'jumppoint': return 3000;
+      case 'jumppoint': return 2900;
       default: return renderPriority;
     }
   };
@@ -74,19 +74,20 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
       groupRef.current.rotation.y = rotationAngle;
     }
     
-    // Position the group at the correct height from the entity
-    groupRef.current.position.set(0, distance, 0);
+    // Position the label to the left side of the entity
+    groupRef.current.position.set(0.0, distance, 0.00);
     
     // Calculate distance to camera (for screen-space sizing)
     const distanceToCamera = cameraPos.distanceTo(groupPos);
     
     // Get label size factors based on entity type
     let typeSizeFactor = 1.0;
-    if (type === 'star') typeSizeFactor = 1.5;
-    else if (type === 'planet') typeSizeFactor = 1.3;
+    if (type === 'star') typeSizeFactor = 2;
+    else if (type === 'planet') typeSizeFactor = 1.0;
     else if (type === 'moon') typeSizeFactor = 1.0;
     else if (type === 'station') typeSizeFactor = 0.9;
     else if (type === 'jumppoint') typeSizeFactor = 1.1;
+    else if (type === 'lagrangepoint') typeSizeFactor = 1.8; // Increased for better visibility
     
     // Calculate constant screen-space size (similar to how Stanton label works)
     // This maintains visual size regardless of camera distance

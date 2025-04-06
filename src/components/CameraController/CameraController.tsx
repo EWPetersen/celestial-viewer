@@ -11,14 +11,14 @@ import { validatePosition } from '../../utils/scene';
 // --- Constants ---
 const ANIMATION_DURATION = 1200; // Duration in milliseconds for smooth transitions
 const POSITION_THRESHOLD = 0.001; // Threshold to stop animation (smaller for Tween)
-const SYSTEM_VIEW_DISTANCE = 8; // Set to 8 previously for (0,0,8) default
+const SYSTEM_VIEW_DISTANCE = 6; // Set to 8 previously for (0,0,8) default
 
 // --- Focus View Constants ---
-const TARGET_FOCUS_DIAMETER_KM = 150000; // Target view diameter in KM (approx 150Mm)
+const TARGET_FOCUS_DIAMETER_KM = 450000; // Target view diameter in KM (approx 150Mm)
 const TARGET_FOCUS_DIAMETER_SCALED = TARGET_FOCUS_DIAMETER_KM * 1000 * SCENE_SCALE; // Convert to meters, then scale
 
 // Factors for zoom range *relative to calculated focus distance*
-const MIN_DISTANCE_FACTOR_REL = 0.05; // How close can we get relative to calculated distance?
+const MIN_DISTANCE_FACTOR_REL = 0.005; // How close can we get relative to calculated distance?
 const MAX_DISTANCE_FACTOR_REL = 100;  // How far can we zoom out relative to calculated distance?
 
 // Default zoom limits (used for system view or if calculations fail)
@@ -26,10 +26,11 @@ const DEFAULT_MIN_DISTANCE = 0.0001; // Allow very close system zoom if needed
 const DEFAULT_MAX_DISTANCE = 1000; 
 
 // Default focus distance calculation constants
-const BASE_DISTANCE_FACTOR = 1.5; // Base multiplier for entity size
+const BASE_DISTANCE_FACTOR = 1.0; // Base multiplier for entity size (reduced from 1.5)
 const MIN_FOCUS_DISTANCE = 0.01; // Minimum distance to prevent clipping
 const MAX_FOCUS_DISTANCE_FACTOR = 5; // Max distance relative to entity size
-const POINT_LIKE_DISTANCE = 0.5; // Fixed distance for point-like objects
+const POINT_LIKE_DISTANCE = 0.35; // Reduced from 0.5 for closer view of points
+const MIN_FOCUS_DISTANCE_POINTS = 0.01; // Minimum distance for point-like objects
 
 interface CameraControllerProps {
   enablePan?: boolean;
@@ -253,7 +254,6 @@ const CameraController: React.FC<CameraControllerProps> = ({
 
       // --- Minimum Distance Check Logic --- 
       let calculatedDistance = (targetDiameter * 0.5) / Math.tan(fovRad * 0.5);
-      const MIN_FOCUS_DISTANCE_POINTS = 0.5; 
       // Use the foundEntityType determined earlier
       const isPointLike = ['poi', 'jumpPoint', 'lagrangepoint'].includes(foundEntityType); 
 

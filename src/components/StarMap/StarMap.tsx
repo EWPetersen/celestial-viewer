@@ -9,6 +9,7 @@ import { EntityRenderer, EntityType } from '../EntityVisuals';
 import { configureRenderer, validatePosition } from '../../utils/scene';
 import SceneControls from '../UI/SceneControls';
 import CameraController from '../CameraController/CameraController';
+import { SCENE_SCALE } from '../../config/constants';
 
 // Fallback component for loading state or errors
 const FallbackObject = ({ name = "Loading..." }: { name?: string }) => (
@@ -210,6 +211,10 @@ const SceneContent: React.FC<SceneContentProps> = ({
     selectedJumpPointId 
   } = useAppStore();
   const [hasError, setHasError] = useState(false);
+  const { camera } = useThree();
+  
+  // Get camera distance from center to scale orbit paths appropriately
+  const cameraDistance = camera.position.length();
   
   if (!celestialSystem) {
     return null;
@@ -253,7 +258,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
   return (
     <>
       <ambientLight intensity={0.5} />
-      <pointLight position={[0, 0, 0]} intensity={2} color="#ffffff" />
+      <pointLight position={[0, 0, 0]} intensity={3} color="#ffffff" distance={100} decay={2} />
       <directionalLight position={[10, 10, 10]} intensity={1} color="#ffffff" />
       <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} />
 
@@ -277,6 +282,12 @@ const SceneContent: React.FC<SceneContentProps> = ({
             const selectedBody = celestialSystem.celestialBodies.find(b => b.id === contextId);
             if (selectedBody && selectedBody.parentId && body.id === selectedBody.parentId) return true;
             
+            // ALSO show the parent's parent (e.g., show star when focusing on a moon)
+            if (selectedBody && selectedBody.parentId) {
+              const parentBody = celestialSystem.celestialBodies.find(b => b.id === selectedBody.parentId);
+              if (parentBody && parentBody.parentId && body.id === parentBody.parentId) return true;
+            }
+            
             // Show siblings (other moons of the same parent) if focusing on a moon
             if (selectedBody && selectedBody.parentId && body.parentId === selectedBody.parentId) return true;
             
@@ -299,6 +310,18 @@ const SceneContent: React.FC<SceneContentProps> = ({
             y: body.position.y - parentBody.position.y,
             z: body.position.z - parentBody.position.z
           } : null;
+          
+          // Calculate orbit radius for planet/moon orbits
+          const orbitRadius = relativePosition ? 
+            Math.sqrt(relativePosition.x * relativePosition.x + 
+                      relativePosition.y * relativePosition.y + 
+                      relativePosition.z * relativePosition.z) : 0;
+            
+          // Only log orbit data for planets and moons
+          if (relativePosition && (body.type === 'planet' || body.type === 'moon')) {
+            console.log(`[DEBUG] Orbit data for ${body.name}: relativePos=[${relativePosition.x.toFixed(2)}, ${relativePosition.y.toFixed(2)}, ${relativePosition.z.toFixed(2)}]`);
+            console.log(`[DEBUG] Orbit radius: ${orbitRadius.toFixed(2)}`);
+          }
             
           return (
             <React.Fragment key={body.id || Math.random().toString()}>
@@ -311,20 +334,311 @@ const SceneContent: React.FC<SceneContentProps> = ({
                   type={body.type}
                   isSelected={useAppStore.getState().selectedCelestialBodyId === body.id}
                   showLabel={showLabels}
-                  showOrbits={showOrbits}
+                  showOrbits={showOrbits && (body.type === 'planet' || body.type === 'moon')} // Only show orbits for planets/moons
                   parentPosition={parentBody ? parentBody.position : null}
                   relativePosition={relativePosition}
                 />
               </Suspense>
               
-              {/* Render orbit if available and parent is not hidden */}
-              {body.orbit && body.parentId && (
-                // TODO: Check if parent type is hidden? Might be complex.
-                <OrbitLine
-                  semiMajorAxis={body.orbit.semiMajorAxis}
-                  eccentricity={body.orbit.eccentricity}
-                  inclination={body.orbit.inclination}
-                />
+              {/* Render orbital paths for planets and moons when orbits are enabled */}
+              {showOrbits && body.parentId && (body.type === 'planet' || body.type === 'moon') && (
+                <mesh 
+                  position={[
+                    parentBody ? parentBody.position.x * SCENE_SCALE : 0,
+                    parentBody ? parentBody.position.y * SCENE_SCALE : 0,
+                    parentBody ? parentBody.position.z * SCENE_SCALE : 0
+                  ]}
+                  renderOrder={-1} // Negative renderOrder ensures orbit paths render behind celestial objects
+                >
+                  {(() => {
+                    // Calculate appropriate orbit thickness based on camera distance and selection state
+                    const isSelected = body.id === selectedCelestialBodyId;
+                    
+                    // Determine if this object is currently in focus view
+                    const isFocusedObject = !isSystemView && contextId === body.id;
+                    
+                    // Determine if this is a parent orbit of the selected body for thickness calculation
+                    let isParentOrbit = false;
+                    if (selectedCelestialBodyId) {
+                      const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+                      if (selectedBody && selectedBody.parentId === body.id) {
+                        isParentOrbit = true;
+                      }
+                    }
+                    
+                    // Base thickness values (will be divided by distanceFactor later)
+                    let baseThickness;
+                    if (isSelected) {
+                      baseThickness = 0.005; // Selected orbit - significantly increased for better visibility
+                    } else if (isParentOrbit) {
+                      baseThickness = 0.004; // Parent orbit - increased for better visibility
+                    } else if (!isSystemView && body.type === 'planet') {
+                      baseThickness = 0.0005; // Planet orbits in focused view - kept thin
+                    } else if (!isSystemView && body.type === 'moon') {
+                      baseThickness = 0.004; // Moon orbits in focused view - increased significantly for better visibility
+                    } else {
+                      baseThickness = 0.0045; // Default thickness - significantly increased for better visibility at system view
+                    }
+                    
+                    // Calculate final thickness with exponential scaling based on camera distance
+                    // Use a different exponential factor for system view vs focus view
+                    let exponent = isSystemView ? 1.2 : 3.5; // Reduced exponent for system view to keep orbits thicker
+                    
+                    // Special case for moons in focus view - use lower exponent for better visibility
+                    if (!isSystemView && body.type === 'moon') {
+                      exponent = 2.0; // Lower exponent for moons in focus view
+                    }
+                    
+                    const distanceFactor = Math.max(1, Math.pow(cameraDistance, exponent) / 10); // Reduced division factor
+                    
+                    // Calculate initial thickness
+                    let thickness = baseThickness / distanceFactor;
+                    
+                    // Scale thickness based on entity size to ensure orbits aren't larger than entities
+                    const entityRadius = body.radius * SCENE_SCALE || 0.1;
+                    
+                    // For system view, use a min thickness to ensure visibility
+                    let minThickness = isSystemView ? 0.0012 : 0.00001; // Increased minimum thickness for system view
+                    
+                    // Special case for moons - higher minimum thickness to ensure visibility
+                    if (body.type === 'moon') {
+                      minThickness = isSystemView ? 0.0015 : 0.0008; // Higher min thickness for moons
+                    }
+                    
+                    // Check if we should hide this orbit because we're focused on a different object
+                    // and this orbit would draw through the system
+                    const shouldHideOrbit = !isSystemView && 
+                                          !isSelected && 
+                                          !isParentOrbit && 
+                                          body.type === 'planet' && 
+                                          contextId !== celestialSystem.rootId;
+                    
+                    // For focused view, use entity radius to constrain max thickness
+                    let maxThicknessRatio = isSystemView ? 0.8 : 0.1; // Percentage of entity radius - increased for system view
+                    
+                    // Special case for moons - higher max thickness ratio
+                    if (body.type === 'moon') {
+                      maxThicknessRatio = isSystemView ? 1.0 : 0.5; // Higher ratio for moons
+                    }
+                    
+                    const maxThickness = Math.max(minThickness, entityRadius / (orbitRadius * SCENE_SCALE) * maxThicknessRatio);
+                    
+                    // Apply additional dynamic scaling for very close views
+                    if (cameraDistance < 0.5) {
+                      // Extremely close - make orbits very thin
+                      thickness *= 0.001;
+                    } else if (cameraDistance < 1) {
+                      // Very close - make orbits thin
+                      thickness *= 0.01;
+                    } else if (cameraDistance < 3) {
+                      // Close - reduce thickness
+                      thickness *= 0.1;
+                    } else if (cameraDistance > 8) {
+                      // Far away - increase thickness for system view
+                      thickness *= Math.min(3, cameraDistance / 6);
+                    }
+                    
+                    // Skip rendering this orbit if it should be hidden
+                    if (shouldHideOrbit) {
+                      return null;
+                    }
+                    
+                    // Apply the entity size constraint
+                    const finalThickness = Math.min(Math.max(thickness, minThickness), maxThickness);
+                    
+                    // Log orbit thickness if this is the selected body
+                    if (isSelected) {
+                      console.log(`[DEBUG] Orbit thickness for ${body.name}: ${finalThickness.toFixed(10)}, cameraDistance: ${cameraDistance.toFixed(2)}, entityRadius: ${entityRadius.toFixed(6)}, maxThickness: ${maxThickness.toFixed(10)}`);
+                    }
+                    
+                    // Increase segments for smoother orbit paths
+                    const segments = 128;
+                    
+                    return (
+                      <>
+                      <ringGeometry args={[
+                        orbitRadius * SCENE_SCALE * (1 - finalThickness), 
+                        orbitRadius * SCENE_SCALE * (1 + finalThickness),
+                        segments
+                      ]} />
+                      <meshStandardMaterial
+                        color={(() => {
+                          // Determine if this is a parent orbit of the selected body
+                          let isParentOrbit = false;
+                          if (selectedCelestialBodyId) {
+                            const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+                            if (selectedBody && selectedBody.parentId === body.id) {
+                              isParentOrbit = true;
+                            }
+                          }
+                          
+                          // Return appropriate color based on selection and relationship
+                          return body.id === selectedCelestialBodyId 
+                            ? '#FFFFFF' 
+                            : isParentOrbit 
+                              ? '#AADDFF'  // Brighter blue for parent orbit 
+                              : body.type === 'planet' 
+                                ? isSystemView ? '#55AAFF' : '#4488DD' // Brighter blue for planets in system view
+                                : body.type === 'moon' 
+                                  ? !isSystemView ? '#99EEFF' : '#77CCFF' // Extra bright blue for moons in focus view
+                                  : '#88AAEE'; // Brighter default
+                        })()} 
+                        emissive={(() => {
+                          // Return emissive color for glow effect
+                          return body.id === selectedCelestialBodyId 
+                            ? '#FFFFFF' // Strong glow for selected
+                            : isSystemView && body.type === 'planet'
+                              ? '#66AAFF' // Stronger glow for planets in system view
+                              : body.type === 'moon' && !isSystemView
+                                ? '#77DDFF' // Strong glow for moons in focus view
+                                : body.type === 'planet'
+                                  ? '#335577' // Subtle glow for planets in focus view
+                                  : '#224466'; // Subtle glow for others
+                        })()}
+                        emissiveIntensity={(() => {
+                          // Return appropriate emissive intensity
+                          return body.id === selectedCelestialBodyId 
+                            ? 0.7 // Strong emission for selected
+                            : body.type === 'moon' && !isSystemView
+                              ? 0.6 // Strong emission for moons in focus view
+                              : isSystemView && body.type === 'planet'
+                                ? 0.5 // Higher emission for planets in system view
+                                : 0.2; // Subtle for others
+                        })()}
+                        transparent={true} 
+                        opacity={(() => {
+                          // Determine if this is a parent orbit of the selected body
+                          let isParentOrbit = false;
+                          if (selectedCelestialBodyId) {
+                            const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+                            if (selectedBody && selectedBody.parentId === body.id) {
+                              isParentOrbit = true;
+                            }
+                          }
+                          
+                          // Return appropriate opacity based on selection and relationship
+                          return body.id === selectedCelestialBodyId 
+                            ? 1.0 // Full opacity for selected object
+                            : isParentOrbit
+                              ? 0.9 // Higher opacity for parent
+                              : body.type === 'moon' && !isSystemView
+                                ? 0.95 // Very high opacity for moons in focus view
+                                : isSystemView && body.type === 'planet'
+                                  ? 0.9 // Higher opacity for planets in system view
+                                  : !isSystemView && body.type === 'planet'
+                                    ? 0.5 // Medium opacity for planets in focused view
+                                    : 0.8; // Higher default opacity
+                        })()}
+                        side={THREE.DoubleSide}
+                        depthWrite={false} // Disable depth writing so orbits don't block objects
+                        metalness={isSystemView && body.type === 'planet' ? 0.8 : (body.id === selectedCelestialBodyId ? 0.7 : 0.5)}
+                        roughness={isSystemView && body.type === 'planet' ? 0.1 : (body.id === selectedCelestialBodyId ? 0.2 : 0.3)}
+                        onBeforeCompile={(shader) => {
+                          // Get base color, emissive and emissiveIntensity from the material
+                          let matColor = body.id === selectedCelestialBodyId 
+                              ? new THREE.Color('#FFFFFF') 
+                              : isParentOrbit 
+                                ? new THREE.Color('#AADDFF') 
+                                : body.type === 'planet' 
+                                  ? isSystemView ? new THREE.Color('#55AAFF') : new THREE.Color('#4488DD')
+                                  : body.type === 'moon' 
+                                    ? !isSystemView ? new THREE.Color('#99EEFF') : new THREE.Color('#77CCFF')
+                                    : new THREE.Color('#88AAEE');
+                          
+                          let matEmissive = body.id === selectedCelestialBodyId 
+                              ? new THREE.Color('#FFFFFF')
+                              : isSystemView && body.type === 'planet'
+                                ? new THREE.Color('#66AAFF')
+                                : body.type === 'moon' && !isSystemView
+                                  ? new THREE.Color('#77DDFF')
+                                  : body.type === 'planet'
+                                    ? new THREE.Color('#335577')
+                                    : new THREE.Color('#224466');
+                          
+                          let matEmissiveIntensity = body.id === selectedCelestialBodyId 
+                              ? 0.7
+                              : body.type === 'moon' && !isSystemView
+                                ? 0.6
+                                : isSystemView && body.type === 'planet'
+                                  ? 0.5
+                                  : 0.2;
+                          
+                          // Get base opacity from the material
+                          let baseOpacity = body.id === selectedCelestialBodyId 
+                              ? 1.0
+                              : isParentOrbit
+                                ? 0.9
+                                : body.type === 'moon' && !isSystemView
+                                  ? 0.95
+                                  : isSystemView && body.type === 'planet'
+                                    ? 0.9
+                                    : !isSystemView && body.type === 'planet'
+                                      ? 0.5
+                                      : 0.8;
+                          
+                          // Add definitions for view direction
+                          shader.uniforms.cameraPosition = { value: camera.position };
+                          
+                          // Add uniforms
+                          shader.uniforms.baseOpacity = { value: baseOpacity };
+                          shader.uniforms.minOpacity = { value: baseOpacity * 0.15 }; // Min opacity for far side
+                          shader.uniforms.fadeStrength = { value: isSystemView ? 1.2 : 1.8 }; // Stronger fade effect for focus view
+                          
+                          // Add vertex shader code to calculate view direction
+                          shader.vertexShader = shader.vertexShader.replace(
+                            '#include <common>',
+                            `#include <common>
+                            varying vec3 vPosition;
+                            varying vec3 vNormal;`
+                          );
+                          
+                          shader.vertexShader = shader.vertexShader.replace(
+                            '#include <begin_vertex>',
+                            `#include <begin_vertex>
+                            vPosition = position;
+                            vNormal = normal;`
+                          );
+                          
+                          // Add fragment shader code to calculate opacity based on view direction
+                          shader.fragmentShader = shader.fragmentShader.replace(
+                            '#include <common>',
+                            `#include <common>
+                            uniform vec3 cameraPosition;
+                            uniform float baseOpacity;
+                            uniform float minOpacity;
+                            uniform float fadeStrength;
+                            varying vec3 vPosition;
+                            varying vec3 vNormal;`
+                          );
+                          
+                          // Modify opacity based on view direction
+                          shader.fragmentShader = shader.fragmentShader.replace(
+                            'vec4 diffuseColor = vec4( diffuse, opacity );',
+                            `
+                            // Calculate view direction
+                            vec3 viewDir = normalize(cameraPosition - vPosition);
+                            
+                            // Calculate view-dependent factors
+                            float viewDot = abs(dot(viewDir, vNormal));
+                            
+                            // Calculate distance-based scale factor (further parts are more transparent)
+                            float distScale = distance(cameraPosition, vPosition);
+                            
+                            // Calculate final opacity
+                            float viewFactor = pow(viewDot, fadeStrength);
+                            
+                            // Fade opacity based on view angle (higher value when looking directly at orbit edge)
+                            float finalOpacity = mix(minOpacity, baseOpacity, viewFactor);
+                            
+                            vec4 diffuseColor = vec4(diffuse, finalOpacity);
+                            `
+                          );
+                        }}
+                      />
+                      </>
+                    );
+                  })()}
+                </mesh>
               )}
             </React.Fragment>
           );
@@ -360,7 +674,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
               name={jump.name}
               position={jump.position}
               destinationSystem={jump.destinationSystem}
-              showOrbits={showOrbits}
+              showOrbits={false} // Don't show orbits for jump points
               parentPosition={parentBody ? parentBody.position : null}
               relativePosition={relativePosition}
             />
@@ -399,7 +713,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
               name={poi.name}
               position={poi.position}
               type={poi.type}
-              showOrbits={showOrbits}
+              showOrbits={false} // Don't show orbits for points of interest
               parentPosition={parentBody ? parentBody.position : null}
               relativePosition={relativePosition}
             />

@@ -11,7 +11,7 @@ interface OrbitPathProps {
 }
 
 /**
- * Component that renders a circular orbit path in the XZ plane
+ * Component that renders a circular orbit path in the XY plane
  */
 const OrbitPath: React.FC<OrbitPathProps> = ({
   center,
@@ -29,12 +29,12 @@ const OrbitPath: React.FC<OrbitPathProps> = ({
     
     if (validRadius <= 0) return [];
     
-    // Create points for circle in XZ plane (Y is up in Three.js)
+    // Create points for circle in XY plane (Z is depth in Three.js)
     for (let i = 0; i <= validSegments; i++) {
       const angle = (i / validSegments) * Math.PI * 2;
       const x = Math.cos(angle) * validRadius;
-      const z = Math.sin(angle) * validRadius;
-      points.push(new THREE.Vector3(x, 0, z));
+      const y = Math.sin(angle) * validRadius;
+      points.push(new THREE.Vector3(x, y, 0));
     }
     
     return points;
@@ -51,8 +51,8 @@ const OrbitPath: React.FC<OrbitPathProps> = ({
       <Line
         points={points}
         color={color}
-        lineWidth={1}
-        opacity={0.6}
+        lineWidth={2}
+        opacity={0.8}
         transparent
       />
     </group>
