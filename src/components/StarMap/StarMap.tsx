@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, Suspense } from 'react';
+import React, { useRef, useState, useEffect, Suspense, useLayoutEffect } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -89,7 +89,10 @@ const JumpPoint: React.FC<{
   name: string;
   position: Vector3;
   destinationSystem: string;
-}> = ({ id, name, position, destinationSystem }) => {
+  showOrbits: boolean;
+  parentPosition: Vector3 | null;
+  relativePosition: Vector3 | null;
+}> = ({ id, name, position, destinationSystem, showOrbits, parentPosition, relativePosition }) => {
   const { selectedJumpPointId, selectJumpPoint } = useAppStore();
   const isSelected = selectedJumpPointId === id;
   
@@ -111,16 +114,6 @@ const JumpPoint: React.FC<{
   // Scale for visualization
   const size = 0.2;
   
-  // Handle click on jump point
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    try {
-      e.stopPropagation();
-      selectJumpPoint(id);
-    } catch (error) {
-      console.error("Error in jump point click handler:", error);
-    }
-  };
-  
   return (
     <Suspense fallback={<FallbackObject name={name} />}>
       <EntityRenderer
@@ -131,6 +124,9 @@ const JumpPoint: React.FC<{
         type="jumppoint"
         isSelected={isSelected}
         color="#ff00ff"
+        showOrbits={showOrbits}
+        parentPosition={parentPosition}
+        relativePosition={relativePosition}
       />
     </Suspense>
   );
@@ -142,7 +138,10 @@ const PointOfInterest: React.FC<{
   name: string;
   position: Vector3;
   type: string;
-}> = ({ id, name, position, type }) => {
+  showOrbits: boolean;
+  parentPosition: Vector3 | null;
+  relativePosition: Vector3 | null;
+}> = ({ id, name, position, type, showOrbits, parentPosition, relativePosition }) => {
   const { selectedPointOfInterestId, selectPointOfInterest } = useAppStore();
   const isSelected = selectedPointOfInterestId === id;
   
@@ -174,16 +173,6 @@ const PointOfInterest: React.FC<{
     }
   };
   
-  // Handle click on POI
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    try {
-      e.stopPropagation();
-      selectPointOfInterest(id);
-    } catch (error) {
-      console.error("Error in POI click handler:", error);
-    }
-  };
-  
   return (
     <Suspense fallback={<FallbackObject name={name} />}>
       <EntityRenderer
@@ -193,6 +182,9 @@ const PointOfInterest: React.FC<{
         size={getSize()}
         type={type || 'unknown'}
         isSelected={isSelected}
+        showOrbits={showOrbits}
+        parentPosition={parentPosition}
+        relativePosition={relativePosition}
       />
     </Suspense>
   );
@@ -202,10 +194,15 @@ const PointOfInterest: React.FC<{
 interface SceneContentProps {
   hiddenTypes: Set<EntityType>;
   showLabels: boolean;
+  showOrbits: boolean;
 }
 
 // Scene component
-const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) => {
+const SceneContent: React.FC<SceneContentProps> = ({ 
+  hiddenTypes, 
+  showLabels,
+  showOrbits
+}) => {
   const { 
     celestialSystem, 
     selectedCelestialBodyId, 
@@ -290,33 +287,48 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) 
           // Hide other planets/moons
           return false;
         })
-        .map((body) => (
-        <React.Fragment key={body.id || Math.random().toString()}>
-          <Suspense fallback={<FallbackObject name={body.name} />}>
-            <EntityRenderer
-              id={body.id}
-              name={body.name}
-              position={validatePosition(body.position)}
-              size={body.radius * 2} // Convert radius to diameter
-              type={body.type}
-              isSelected={useAppStore.getState().selectedCelestialBodyId === body.id}
-              showLabel={showLabels}
-            />
-          </Suspense>
-          
-          {/* Render orbit if available and parent is not hidden */}
-          {body.orbit && body.parentId && (
-            // TODO: Check if parent type is hidden? Might be complex.
-            <OrbitLine
-              semiMajorAxis={body.orbit.semiMajorAxis}
-              eccentricity={body.orbit.eccentricity}
-              inclination={body.orbit.inclination}
-            />
-          )}
-          
-          {/* Render moons - MOON LOGIC IS NOW HANDLED IN THE MAIN celestialBodies filter above */}
-        </React.Fragment>
-      ))}
+        .map((body) => {
+          // Find parent entity for relative position calculations
+          const parentBody = body.parentId ? 
+            celestialSystem.celestialBodies.find(b => b.id === body.parentId) : 
+            null;
+            
+          // Get relative position if parent exists
+          const relativePosition = parentBody ? {
+            x: body.position.x - parentBody.position.x,
+            y: body.position.y - parentBody.position.y,
+            z: body.position.z - parentBody.position.z
+          } : null;
+            
+          return (
+            <React.Fragment key={body.id || Math.random().toString()}>
+              <Suspense fallback={<FallbackObject name={body.name} />}>
+                <EntityRenderer
+                  id={body.id}
+                  name={body.name}
+                  position={validatePosition(body.position)}
+                  size={body.radius * 2} // Convert radius to diameter
+                  type={body.type}
+                  isSelected={useAppStore.getState().selectedCelestialBodyId === body.id}
+                  showLabel={showLabels}
+                  showOrbits={showOrbits}
+                  parentPosition={parentBody ? parentBody.position : null}
+                  relativePosition={relativePosition}
+                />
+              </Suspense>
+              
+              {/* Render orbit if available and parent is not hidden */}
+              {body.orbit && body.parentId && (
+                // TODO: Check if parent type is hidden? Might be complex.
+                <OrbitLine
+                  semiMajorAxis={body.orbit.semiMajorAxis}
+                  eccentricity={body.orbit.eccentricity}
+                  inclination={body.orbit.inclination}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
       
       {/* Render jump points */}
       {celestialSystem.jumpPoints
@@ -328,15 +340,32 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) 
           if (!isSystemView && jump.parentId === contextId) return true;
           return false;
         })
-        .map((jump) => (
-          <JumpPoint
-            key={jump.id || Math.random().toString()}
-            id={jump.id}
-            name={jump.name}
-            position={jump.position}
-            destinationSystem={jump.destinationSystem}
-          />
-      ))}
+        .map((jump) => {
+          // Find parent entity for relative position calculations
+          const parentBody = jump.parentId ? 
+            celestialSystem.celestialBodies.find(b => b.id === jump.parentId) : 
+            null;
+            
+          // Get relative position if parent exists
+          const relativePosition = parentBody ? {
+            x: jump.position.x - parentBody.position.x,
+            y: jump.position.y - parentBody.position.y,
+            z: jump.position.z - parentBody.position.z
+          } : null;
+          
+          return (
+            <JumpPoint
+              key={jump.id || Math.random().toString()}
+              id={jump.id}
+              name={jump.name}
+              position={jump.position}
+              destinationSystem={jump.destinationSystem}
+              showOrbits={showOrbits}
+              parentPosition={parentBody ? parentBody.position : null}
+              relativePosition={relativePosition}
+            />
+          );
+        })}
       
       {/* Render points of interest */}
       {celestialSystem.pointsOfInterest
@@ -350,16 +379,32 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) 
           if (!isSystemView && poi.parentId === contextId) return true;
           return false;
         })
-        .map((poi) => (
-        <PointOfInterest
-          key={poi.id || Math.random().toString()}
-          id={poi.id}
-          name={poi.name}
-          position={poi.position}
-          type={poi.type}
-          showLabel={showLabels}
-        />
-      ))}
+        .map((poi) => {
+          // Find parent entity for relative position calculations
+          const parentBody = poi.parentId ? 
+            celestialSystem.celestialBodies.find(b => b.id === poi.parentId) : 
+            null;
+            
+          // Get relative position if parent exists
+          const relativePosition = parentBody ? {
+            x: poi.position.x - parentBody.position.x,
+            y: poi.position.y - parentBody.position.y,
+            z: poi.position.z - parentBody.position.z
+          } : null;
+          
+          return (
+            <PointOfInterest
+              key={poi.id || Math.random().toString()}
+              id={poi.id}
+              name={poi.name}
+              position={poi.position}
+              type={poi.type}
+              showOrbits={showOrbits}
+              parentPosition={parentBody ? parentBody.position : null}
+              relativePosition={relativePosition}
+            />
+          );
+        })}
       
     </>
   );
@@ -367,27 +412,122 @@ const SceneContent: React.FC<SceneContentProps> = ({ hiddenTypes, showLabels }) 
 
 // Main StarMap component
 const StarMap: React.FC = () => {
-  const { celestialSystem, isLoading, error, selectCelestialBody } = useAppStore();
+  const { celestialSystem, isLoading, error, selectCelestialBody, showOrbits, setShowOrbits } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
-  const [labelsVisible, setLabelsVisible] = useState<boolean>(true);
   // Add state for camera info
   const [currentCameraPosition, setCurrentCameraPosition] = useState<THREE.Vector3>(new THREE.Vector3());
   const [currentCameraTarget, setCurrentCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3());
-
+  const [labelsVisible, setLabelsVisible] = useState(true);
+  
+  // Ref for container element
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Debug logging for dimensions - useLayoutEffect runs after DOM updates but before browser paint
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      
+      console.log('[DEBUG-LAYOUT] StarMap container dimensions on layout:', {
+        width: containerRect.width,
+        height: containerRect.height
+      });
+      
+      // Log DOM hierarchy
+      let parent = container.parentElement;
+      let hierarchy = [];
+      
+      while (parent) {
+        const rect = parent.getBoundingClientRect();
+        hierarchy.push({
+          tagName: parent.tagName,
+          className: parent.className,
+          width: rect.width,
+          height: rect.height,
+          position: window.getComputedStyle(parent).position
+        });
+        parent = parent.parentElement;
+      }
+      
+      console.log('[DEBUG-LAYOUT] DOM hierarchy:', hierarchy);
+    }
+  }, []);
+  
+  // Debug logging for dimensions
+  useEffect(() => {
+    const logDimensions = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        const containerRect = container.getBoundingClientRect();
+        
+        console.log('[DEBUG] StarMap container dimensions:', {
+          width: containerRect.width,
+          height: containerRect.height,
+          offsetWidth: container.offsetWidth,
+          offsetHeight: container.offsetHeight,
+          clientWidth: container.clientWidth, 
+          clientHeight: container.clientHeight,
+          style: container.style.cssText,
+          computedStyle: {
+            width: window.getComputedStyle(container).width,
+            height: window.getComputedStyle(container).height,
+            position: window.getComputedStyle(container).position,
+            display: window.getComputedStyle(container).display
+          }
+        });
+        
+        // Also log parent dimensions
+        if (container.parentElement) {
+          const parentRect = container.parentElement.getBoundingClientRect();
+          console.log('[DEBUG] StarMap parent dimensions:', {
+            width: parentRect.width,
+            height: parentRect.height,
+            className: container.parentElement.className,
+            computedStyle: {
+              width: window.getComputedStyle(container.parentElement).width,
+              height: window.getComputedStyle(container.parentElement).height,
+              position: window.getComputedStyle(container.parentElement).position,
+              display: window.getComputedStyle(container.parentElement).display
+            }
+          });
+        }
+        
+        // Check canvas element 
+        const canvasElement = container.querySelector('canvas');
+        if (canvasElement) {
+          const canvasRect = canvasElement.getBoundingClientRect();
+          console.log('[DEBUG] Canvas dimensions:', {
+            width: canvasRect.width,
+            height: canvasRect.height,
+            style: canvasElement.style.cssText,
+            computedStyle: {
+              width: window.getComputedStyle(canvasElement).width,
+              height: window.getComputedStyle(canvasElement).height,
+              position: window.getComputedStyle(canvasElement).position,
+              display: window.getComputedStyle(canvasElement).display
+            }
+          });
+        }
+      }
+    };
+    
+    // Log on mount
+    logDimensions();
+    
+    // Log on resize
+    window.addEventListener('resize', logDimensions);
+    return () => window.removeEventListener('resize', logDimensions);
+  }, []);
+  
   const resetCameraView = () => {
     console.log("StarMap: Resetting view via state update.");
     // CameraController will handle the reset when selectedCelestialBodyId becomes null
     selectCelestialBody(null); 
   };
 
-  // Handle entity filter toggle
+  // Callback for SceneControls
   const handleFilterChange = (newHiddenTypes: Set<EntityType>) => {
     setHiddenTypes(newHiddenTypes);
-  };
-
-  // Handle label visibility toggle
-  const handleToggleLabels = () => {
-    setLabelsVisible(prev => !prev);
   };
   
   // New callbacks for focus/reset to pass to SceneControls
@@ -397,6 +537,14 @@ const StarMap: React.FC = () => {
 
   const handleResetView = () => {
     resetCameraView(); // Call our updated reset function
+  };
+
+  const handleToggleLabels = () => {
+    setLabelsVisible(!labelsVisible);
+  };
+  
+  const handleToggleOrbits = () => {
+    setShowOrbits(!showOrbits);
   };
   
   if (isLoading) {
@@ -412,44 +560,99 @@ const StarMap: React.FC = () => {
   }
   
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}> 
-      <ErrorBoundary>
-        {/* Pass camera state to SceneControls */}
-        <SceneControls 
-          onFilterChange={handleFilterChange} 
-          onFocusEntity={handleFocusEntity} 
-          onResetView={handleResetView}   
-          onToggleLabels={handleToggleLabels}
-          labelsVisible={labelsVisible}
-          cameraPosition={currentCameraPosition}
-          cameraTarget={currentCameraTarget}
-        /> 
-        
-        <Canvas
-          style={{ background: '#000' }}
-          // Explicitly set camera near and far planes
-          camera={{ fov: 60, near: 0.0001, far: 10000 }} // Significantly decrease near plane
-          onCreated={({ gl }) => {
+    <div className="star-map" ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {/* Scene Controls */}
+      <SceneControls 
+        onFilterChange={handleFilterChange}
+        onResetView={handleResetView}
+        onFocusEntity={handleFocusEntity}
+        onToggleLabels={handleToggleLabels}
+        onToggleOrbits={handleToggleOrbits}
+        labelsVisible={labelsVisible}
+        orbitsVisible={showOrbits}
+        cameraPosition={currentCameraPosition}
+        cameraTarget={currentCameraTarget}
+      />
+
+      {/* 3D Scene Canvas */}
+      <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+        <Canvas 
+          style={{ width: '100%', height: '100%', display: 'block', background: 'black' }}
+          gl={{ antialias: true, logarithmicDepthBuffer: true, alpha: true }}
+          onCreated={({ gl, size, camera }) => {
             configureRenderer(gl);
+            // Log initial canvas size
+            console.log('[DEBUG] Canvas initial size:', size);
+            
+            // Log camera aspect ratio
+            if (camera instanceof THREE.PerspectiveCamera) {
+              console.log('[DEBUG] Camera FOV:', camera.fov, 'Aspect:', camera.aspect);
+            }
           }}
+          resize={{ scroll: false, debounce: { scroll: 50, resize: 0 } }}
+          camera={{ position: [0, 0, 5], near: 0.00001, far: 1000 }}
         >
-          <Suspense fallback={<FallbackObject name="Loading scene..." />}>
-            <SceneContent hiddenTypes={hiddenTypes} showLabels={labelsVisible} />
-            {/* Render the new CameraController instead */}
-            <CameraController 
-               enablePan={true} 
-               enableZoom={true} 
-               enableRotate={true} 
-               autoRotate={false} // Configure as needed
-               // Pass state setters down
-               setPos={setCurrentCameraPosition} 
-               setTarget={setCurrentCameraTarget} 
-            />
-          </Suspense>
+          <CameraController 
+            setPos={setCurrentCameraPosition}
+            setTarget={setCurrentCameraTarget}
+          />
+          <ErrorBoundary>
+            {celestialSystem ? (
+              <SceneContent 
+                hiddenTypes={hiddenTypes} 
+                showLabels={labelsVisible}
+                showOrbits={showOrbits}
+              />
+            ) : (
+              <FallbackObject name="Loading star system..." />
+            )}
+          </ErrorBoundary>
         </Canvas>
-      </ErrorBoundary>
+      </div>
     </div>
   );
+};
+
+// Helper component to read camera state within Canvas context
+const CameraStateReader: React.FC<{ 
+  setPos: (pos: THREE.Vector3) => void, 
+  setTarget: (target: THREE.Vector3) => void 
+}> = ({ setPos, setTarget }) => {
+  const { camera } = useThree();
+  const controls = (useThree().controls as any); // Access controls contextually
+  const lastPos = useRef(new THREE.Vector3());
+  const lastTarget = useRef(new THREE.Vector3());
+  const threshold = 0.01; // Only update if changed by more than this amount
+
+  useFrame(() => {
+    console.log('[CameraStateReader] useFrame running.');
+    const currentPos = camera.position;
+    const currentTarget = controls?.target;
+
+    if (!currentTarget) {
+        console.log('[CameraStateReader] Controls or target not found.');
+        return;
+    }
+    
+    console.log('[CameraStateReader] Current Pos:', currentPos.x, 'Target:', currentTarget.x);
+
+    if (currentPos.distanceTo(lastPos.current) > threshold || 
+        currentTarget.distanceTo(lastTarget.current) > threshold) {
+      
+      console.log('[CameraStateReader] Change threshold exceeded. Attempting update.');
+      const clonedPos = currentPos.clone();
+      const clonedTarget = currentTarget.clone();
+      
+      console.log('[CameraStateReader] Updating camera state:', clonedPos, clonedTarget);
+      setPos(clonedPos); 
+      setTarget(clonedTarget);
+      
+      lastPos.current.copy(clonedPos);
+      lastTarget.current.copy(clonedTarget);
+    }
+  });
+
+  return null; // This component doesn't render anything itself
 };
 
 // Simple error boundary component

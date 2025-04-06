@@ -5,12 +5,13 @@ import { Text } from '@react-three/drei';
 import { EntityRendererProps, EntityType } from './types';
 import CelestialMeshFactory from './CelestialMeshFactory';
 import EntityLabel from './EntityLabel';
+import OrbitPath from './OrbitPath';
 import useAppStore from '../../stores/useAppStore';
 import { SCENE_SCALE, MIN_VISUAL_SIZE, getBaseIconSizeByType } from '../../config/constants'; // Import shared constants
 
 // --- Constants for Dynamic Scaling ---
 const FAR_THRESHOLD = 5.0;  // Distance beyond which objects use FAR_SCALE
-const CLOSE_THRESHOLD = 0.01; // Distance within which objects use CLOSE_SCALE
+const CLOSE_THRESHOLD = 0.001; //Distance within which objects use CLOSE_SCALE
 
 // Type-specific scale factors for default system view
 const TYPE_SCALE_FACTORS = {
@@ -29,16 +30,16 @@ const TYPE_SCALE_FACTORS = {
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.7,         // Further from the surface for stars
-  planet: 0.65,      // Further for planets
-  moon: 0.55,        // Default for moons
-  station: 0.50,     // Closer for stations
-  reststop: 0.50,    // Closer for reststops
-  landingzone: 0.45, // Closer for landing zones
-  commarray: 0.45,   // Closer for comm arrays
-  outpost: 0.45,     // Closer for outposts
-  jumppoint: 0.55,   // Default for jump points
-  lagrangepoint: 0.55,// Default for lagrange points
+  star: 0.4,         // Further from the surface for stars
+  planet: 0.003,  // Further for planets
+  moon: 0.005,        // Default for moons
+  station: 0.005,    // Closer for stations
+  reststop: 0.0050,    // Closer for reststops
+  landingzone: 0.001, // Closer for landing zones
+  commarray: 0.001,   // Closer for comm arrays
+  outpost: 0.001,     // Closer for outposts
+  jumppoint: 0.9,   // Default for jump points
+  lagrangepoint: 0.1,// Default for lagrange points
   unknown: 0.55      // Default for unknown types
 };
 
@@ -46,15 +47,15 @@ const LABEL_DISTANCES = {
 const ENTITY_RADIUS_MULTIPLIERS = {
   star: 1.0,         // Stars have standard radius
   planet: 1.0,       // Planets have standard radius
-  moon: 0.5,         // Moons are smaller
-  station: 0.3,      // Stations are much smaller
-  reststop: 0.3,     // Reststops are smaller
-  landingzone: 0.2,  // Landing zones are smaller
-  commarray: 0.2,    // Comm arrays are smaller
-  outpost: 0.2,      // Outposts are smaller
-  jumppoint: 0.4,    // Jump points are smaller
-  lagrangepoint: 0.3,// Lagrange points are smaller
-  unknown: 0.3       // Unknown types are smaller
+  moon: 1.0,         // Moons are smaller
+  station: 1.0,      // Stations are much smaller
+  reststop: 1.0,     // Reststops are smaller
+  landingzone: 1.0,  // Landing zones are smaller
+  commarray: 1.0,    // Comm arrays are smaller
+  outpost: 1.0,      // Outposts are smaller
+  jumppoint: 1.0,    // Jump points are smaller
+  lagrangepoint: 1.0,// Lagrange points are smaller
+  unknown: 1.0      // Unknown types are smaller
 };
 
 // Label scaling factors by type - controls how label size changes with distance
@@ -74,7 +75,7 @@ const LABEL_SCALE_FACTORS = {
 
 // Updated dynamic scale multipliers
 const FAR_SCALE_MULTIPLIER = 1.0; // Base multiplier at far distances (modified by type)
-const CLOSE_SCALE_MULTIPLIER = 0.005; // Multiplier at close distances (significantly smaller)
+const CLOSE_SCALE_MULTIPLIER = 0.5; // Multiplier at close distances (significantly smaller)
 
 // Smoothstep interpolation function
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -95,7 +96,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   isSelected = false,
   selectable = true,
   color,
-  showLabel = true
+  showLabel = true,
+  showOrbits = false,
+  parentPosition = null,
+  relativePosition = null
 }) => {
   
   const { 
@@ -240,13 +244,11 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     z: safePosition.z * SCENE_SCALE
   }), [safePosition]);
   
-  const scenePositionVec = useMemo(() => new THREE.Vector3(scenePosition.x, scenePosition.y, scenePosition.z), [scenePosition]);
-
-  // Dynamic Scaling Logic within useFrame for the mesh group
+  // Dynamic Scaling Logic within useFrame
   useFrame(() => {
     if (!groupRef.current) return;
-    const distance = camera.position.distanceTo(scenePositionVec);
-    
+    const distance = camera.position.distanceTo(groupRef.current.position);
+
     // --- Select parameters based on type --- 
     let closeMultiplier = CLOSE_SCALE_MULTIPLIER;
     let farThreshold = FAR_THRESHOLD;
@@ -294,14 +296,13 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Store both the mesh scale and the raw distance for label scaling
     setCurrentVisualScale(finalScale);
     
-    // Log only when selected AND relevant types
-    if (isCurrentlySelected && (type === 'planet' || type === 'moon' || type === 'star')) {
+    // Log only when selected AND values have changed significantly
+    if (isCurrentlySelected && (name === 'Crusader' || name === 'Stanton' || type === 'lagrangepoint' || type === 'jumppoint')) {
       const scaleChanged = Math.abs(finalScale - lastLoggedScale) > 0.001;
       const distanceChanged = Math.abs(distance - lastLoggedDistance) > 0.01;
       
       if (scaleChanged || distanceChanged) {
-        // Log parent scale and label props
-        console.log(`[Renderer-${name}] ParentScale=${groupRef.current.scale.x.toFixed(4)}, LabelProps: finalLabelScale=${finalScale.toFixed(4)}, adjustedLabelDistance=${distance.toFixed(4)}`);
+        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(4)}, meshScale=${finalScale.toFixed(4)}`);
         
         // Update last logged values
         setLastLoggedScale(finalScale);
@@ -309,6 +310,34 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       }
     }
   });
+
+  // Calculate orbit radius if we have relative position
+  const orbitRadius = useMemo(() => {
+    if (!relativePosition || 
+        !relativePosition.x || 
+        !relativePosition.y || 
+        !relativePosition.z) {
+      return 0;
+    }
+    
+    // Calculate orbit radius using relative position
+    const { x, y, z } = relativePosition;
+    return Math.sqrt(x*x + y*y + z*z) * SCENE_SCALE;
+  }, [relativePosition]);
+  
+  // Check if orbit should be shown
+  const shouldShowOrbit = useMemo(() => {
+    // Only show orbits if the feature is enabled
+    if (!showOrbits) return false;
+    
+    // Don't show orbit for the root object (Stanton) or for entities without parents
+    if (!parentPosition) return false;
+    
+    // Don't show orbit for entities with zero relative position
+    if (!orbitRadius || orbitRadius <= 0) return false;
+    
+    return true;
+  }, [showOrbits, parentPosition, orbitRadius]);
 
   // Create a fallback entity for error cases
   if (hasError) {
@@ -357,7 +386,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     // Calculate distance ratio for label positioning
     // This makes labels move further away when very close to avoid occlusion
-    let distanceRatio = 1.0;
+    let distanceRatio = 0.5;
     
     // Only adjust distance for nearby large objects (planets, stars, moons)
     if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
@@ -377,44 +406,65 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Build debug info string - only include necessary info
     const debugInfo = `distanceRatio=${distanceRatio.toFixed(2)}`;
 
+    // --- Debug Logging for Planets/Moons ---
+    if (type === 'planet' || type === 'moon') {
+        console.log(`[EntityRenderer Debug - ${name}] 
+          Type: ${type}, 
+          BaseLabelDist: ${baseLabelDistance.toFixed(4)}, 
+          CamDist: ${cameraDistance.toFixed(4)}, 
+          DistRatio: ${distanceRatio.toFixed(4)}, 
+          AdjLabelDist: ${adjustedLabelDistance.toFixed(4)}, 
+          ParentScale(finalScale): ${currentVisualScale.toFixed(4)}, 
+          LabelScaleFactor: ${labelScaleFactor.toFixed(4)}, 
+          FinalLabelScale: ${finalLabelScale.toFixed(4)}`);
+    }
+    // --- End Debug Logging ---
+
     // No debug logging in render function - it would log on every render cycle
     
     return (
-      <>
-        {/* Group for the scaled mesh ONLY */}
-        <group 
-          ref={groupRef}
-          position={scenePositionVec} // Position the group itself
-          onClick={handleClick}
-          // Scale is set in useFrame
-        >
-          <CelestialMeshFactory 
-            type={type || 'unknown'}
-            size={scaledSize} // Use pre-calculated scaledSize for mesh
-            isSelected={isCurrentlySelected}
-            color={color}
-          />
-        </group>
-
-        {/* Render the label OUTSIDE the scaled group */}
+      <group 
+        ref={groupRef}
+        position={[scenePosition.x, scenePosition.y, scenePosition.z]}
+        onClick={handleClick}
+      >
+        <CelestialMeshFactory 
+          type={type || 'unknown'}
+          size={scaledSize}
+          isSelected={isCurrentlySelected}
+          color={color}
+        />
         {showLabel && (
           <EntityLabel
             text={displayLabel}
-            position={scenePositionVec} // Pass world position directly
-            size={size} // Original size, might not be needed by label anymore
+            position={{ x: 0, y: 0, z: 0 }}
+            size={size}
             color={getLabelColor()}
-            // visualScale={finalLabelScale} // Let label handle its own constant size
-            distance={adjustedLabelDistance} // Pass calculated offset distance
+            visualScale={finalLabelScale}
+            distance={adjustedLabelDistance}
             type={type}
             isSelected={isCurrentlySelected}
             debugInfo={debugInfo}
           />
         )}
-      </>
+        
+        {/* Render orbit path if conditions are met */}
+        {shouldShowOrbit && parentPosition && (
+          <OrbitPath
+            center={{ 
+              x: parentPosition.x * SCENE_SCALE - scenePosition.x, 
+              y: parentPosition.y * SCENE_SCALE - scenePosition.y, 
+              z: parentPosition.z * SCENE_SCALE - scenePosition.z 
+            }}
+            radius={orbitRadius}
+            color={type === 'moon' ? '#4488aa' : '#335577'}
+          />
+        )}
+      </group>
     );
   } catch (error) {
     console.error(`[EntityRenderer] Error rendering entity ${name}:`, error);
-    return null; // Render nothing on error
+    return <group position={[0, 0, 0]} />; // Fallback group
   }
 };
 

@@ -8,13 +8,13 @@ import { EntityType, CelestialMeshProps, EntityMaterialProps } from './types';
 // Adjusted for holographic look - smaller core objects, rely on glow/effects
 const entityVisualScaleFactors: Record<EntityType | 'unknown', number> = {
   star: 0.2,          // Smaller core, larger corona
-  planet: 0.008,      // Slightly smaller core for atmosphere effect
-  moon: 0.007,        // Slightly smaller core
-  station: 0.0015,     // Larger for better visibility
-  commarray: 0.001,   // Keep small
-  landingzone: 0.001, // Keep small
-  lagrangepoint: 0.1, // Smaller core, rely on glow
-  jumppoint: 0.2,     // Torus base size
+  planet: 0.015,      // Slightly smaller core for atmosphere effect
+  moon: 0.04,        // Slightly smaller core
+  station: 0.008,     // Larger for better visibility
+  commarray: 0.01,   // Keep small
+  landingzone: 0.01, // Keep small
+  lagrangepoint: 0.6, // Smaller core, rely on glow
+  jumppoint: 0.6,     // Torus base size
   reststop: 0.0015,   // Consistent with station
   outpost: 0.0012,    // Slightly smaller than station
   unknown: 0.001,     // Default small size

@@ -96,6 +96,7 @@ export interface AppState {
   selectedPointOfInterestId: string | null;
   selectedJumpPointId: string | null;
   selectedRouteId: string | null;
+  showOrbits: boolean;
   
   // Camera state
   cameraPosition: Vector3;
@@ -131,6 +132,8 @@ export interface AppState {
   
   setSimulationTime: (time: number) => void;
   setTimeMultiplier: (multiplier: number) => void;
+  
+  setShowOrbits: (show: boolean) => void;
 }
 
 // Create the store
@@ -144,6 +147,7 @@ const useAppStore = create<AppState>((set) => ({
   selectedPointOfInterestId: null,
   selectedJumpPointId: null,
   selectedRouteId: null,
+  showOrbits: true,
   
   cameraPosition: { x: 0, y: 0, z: 100 },
   cameraTarget: { x: 0, y: 0, z: 0 },
@@ -205,7 +209,9 @@ const useAppStore = create<AppState>((set) => ({
   setCurrentRoute: (route) => set({ currentRoute: route }),
   
   setSimulationTime: (time) => set({ simulationTime: time }),
-  setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier })
+  setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
+  
+  setShowOrbits: (show) => set({ showOrbits: show })
 }));
 
 export default useAppStore; 

@@ -43,8 +43,8 @@ function App() {
         <h1>Celestial Viewer</h1>
       </header>
       <main className="App-content">
-        {/* 3D Celestial Map */}
-        <div className="star-map-container">
+        {/* 3D Celestial Map - ensure it takes 100% of available space */}
+        <div className="star-map-container" style={{ width: '100%', height: '100%', position: 'relative' }}>
           <StarMap />
         </div>
       </main>

@@ -22,9 +22,10 @@ export type EntityType =
  */
 export interface EntityLabelProps {
   text: string;
-  position: THREE.Vector3;
-  size?: number;
+  position: Vector3;
+  size: number;
   distance?: number;
+  visualScale?: number;
   color?: string;
   type?: string;
   renderPriority?: number;
@@ -55,6 +56,9 @@ export interface EntityRendererProps {
   selectable?: boolean;
   color?: string;
   showLabel?: boolean;
+  showOrbits?: boolean;
+  parentPosition?: Vector3 | null;
+  relativePosition?: Vector3 | null;
 }
 
 /**
