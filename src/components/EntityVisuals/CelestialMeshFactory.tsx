@@ -232,35 +232,13 @@ const CelestialMeshFactory: React.FC<CelestialMeshProps> = ({
 
     return (
       <>
-        {/* Layer 1 - Close Corona */}
+        {/* Single Corona Layer */}
         <mesh>
-          <sphereGeometry args={[baseSize * 1.5, 32, 32]} />
+          <sphereGeometry args={[baseSize * 3.0, 32, 32]} />
           <meshBasicMaterial 
             color={coronaColor}
             transparent={true} 
-            opacity={0.4}
-            side={THREE.BackSide} 
-            depthWrite={false}
-          />
-        </mesh>
-        {/* Layer 2 - Mid Corona */}
-        <mesh>
-          <sphereGeometry args={[baseSize * 2.5, 32, 32]} />
-          <meshBasicMaterial 
-            color={coronaColor}
-            transparent={true} 
-            opacity={0.2}
-            side={THREE.BackSide} 
-            depthWrite={false}
-          />
-        </mesh>
-        {/* Layer 3 - Outer Glow */}
-         <mesh>
-          <sphereGeometry args={[baseSize * 4.0, 32, 32]} />
-          <meshBasicMaterial 
-            color={coronaColor}
-            transparent={true} 
-            opacity={0.1}
+            opacity={0.3}
             side={THREE.BackSide} 
             depthWrite={false}
           />
