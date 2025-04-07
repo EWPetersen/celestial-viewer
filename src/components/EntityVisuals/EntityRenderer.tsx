@@ -509,8 +509,27 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // This makes labels move further away when very close to avoid occlusion
     let distanceRatio = 0.5;
     
-    // Determine if we're in system view based on camera distance
+    // Determine if we're in system view based on camera distance with a transition zone
     const isSystemView = cameraDistance > SYSTEM_VIEW_THRESHOLD;
+    
+    // Create a smooth transition zone around the system view threshold
+    const TRANSITION_RANGE = 0.8; // Width of transition zone
+    const transitionStart = SYSTEM_VIEW_THRESHOLD - TRANSITION_RANGE; 
+    const transitionEnd = SYSTEM_VIEW_THRESHOLD + TRANSITION_RANGE;
+    let transitionFactor = 0;
+    
+    if (cameraDistance <= transitionStart) {
+      // Fully in planetary view
+      transitionFactor = 0;
+    } else if (cameraDistance >= transitionEnd) {
+      // Fully in system view
+      transitionFactor = 1;
+    } else {
+      // In transition zone - apply smooth interpolation
+      transitionFactor = (cameraDistance - transitionStart) / (2 * TRANSITION_RANGE);
+      // Use smoothstep curve for more natural transition
+      transitionFactor = smoothstep(0, 1, transitionFactor);
+    }
     
     // Only adjust distance for nearby large objects (planets, stars, moons)
     if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
@@ -527,19 +546,20 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       distanceRatio *= labelDistanceScale;
     }
     
-    // Apply system-level view label distance scaling
-    if (isSystemView) {
-      // Get the appropriate scaling factor for this entity type
-      const systemScaleFactor = 
-        SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
-        SYSTEM_VIEW_LABEL_SCALE.default;
-      
-      // Apply the system view scaling factor to the distance ratio, adjusted by user-controlled scale
-      distanceRatio = Math.max(distanceRatio, systemScaleFactor * labelDistanceScale);
-      
-      if (isCurrentlySelected || (type === 'planet' || type === 'star')) {
-        console.log(`[LABEL-DEBUG] System view label for ${name} (${type}): distanceRatio=${distanceRatio.toFixed(6)}, scaleFactor=${systemScaleFactor.toFixed(2)}, userScale=${labelDistanceScale.toFixed(2)}`);
-      }
+    // Get the appropriate system-view scaling factor for this entity type
+    const systemScaleFactor = 
+      SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
+      SYSTEM_VIEW_LABEL_SCALE.default;
+    
+    // Apply smooth transition between planetary view and system view factors
+    const planetaryViewFactor = distanceRatio;
+    const systemViewFactor = systemScaleFactor * labelDistanceScale;
+    
+    // Blend between the two using the transition factor
+    distanceRatio = planetaryViewFactor * (1 - transitionFactor) + systemViewFactor * transitionFactor;
+    
+    if (isCurrentlySelected || (type === 'planet' || type === 'star')) {
+      console.log(`[LABEL-TRANSITION] ${name} (${type}): dist=${cameraDistance.toFixed(6)}, factor=${transitionFactor.toFixed(4)}, ratio=${distanceRatio.toFixed(4)}`);
     }
     
     // For detail view types, enhance label visibility when selected
