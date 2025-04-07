@@ -14,7 +14,7 @@ const entityVisualScaleFactors: Record<EntityType | 'unknown', number> = {
   commarray: 0.02,   // Keep small
   landingzone: 0.01, // Keep small
   lagrangepoint: 0.1, // Smaller core, rely on glow
-  jumppoint: 0.07,     // Torus base size
+  jumppoint: 0.1,     // Torus base size
   reststop: 0.0015,   // Consistent with station
   outpost: 0.0012,    // Slightly smaller than station
   unknown: 0.001,     // Default small size
