@@ -9,7 +9,14 @@ import { EntityRenderer, EntityType } from '../EntityVisuals';
 import { configureRenderer, validatePosition } from '../../utils/scene';
 import SceneControls from '../UI/SceneControls';
 import CameraController from '../CameraController/CameraController';
-import { SCENE_SCALE } from '../../config/constants';
+import { 
+  SCENE_SCALE, 
+  SYSTEM_VIEW_THRESHOLD, 
+  DETAIL_VIEW_THRESHOLD 
+} from '../../config/constants';
+
+// Set to false for production
+const DEBUG_VISIBILITY = false;
 
 // Fallback component for loading state or errors
 const FallbackObject = ({ name = "Loading..." }: { name?: string }) => (
@@ -79,7 +86,6 @@ const OrbitLine: React.FC<{
       </line>
     );
   } catch (error) {
-    console.error("Error rendering orbit line:", error);
     return null;
   }
 };
@@ -106,7 +112,6 @@ const JumpPoint: React.FC<{
       !isFinite(position.x) || 
       !isFinite(position.y) || 
       !isFinite(position.z)) {
-    console.error(`Invalid position for jump point ${name}:`, position);
     return <FallbackObject name={`Error: ${name}`} />;
   }
   
@@ -156,7 +161,6 @@ const PointOfInterest: React.FC<{
       !isFinite(position.x) || 
       !isFinite(position.y) || 
       !isFinite(position.z)) {
-    console.error(`Invalid position for POI ${name}:`, position);
     return <FallbackObject name={`Error: ${name}`} />;
   }
   
@@ -209,49 +213,156 @@ const SceneContent: React.FC<SceneContentProps> = ({
   showOrbits,
   labelDistanceScale
 }) => {
+  const { camera } = useThree();
   const { 
     celestialSystem, 
     selectedCelestialBodyId, 
-    selectedPointOfInterestId, 
-    selectedJumpPointId 
+    selectedPointOfInterestId,
+    selectedJumpPointId
   } = useAppStore();
-  const [hasError, setHasError] = useState(false);
-  const { camera } = useThree();
+  
+  // Debug visibility issues
+  const lastCameraDistance = useRef(0);
+  const lastObjectVisibility = useRef<{[key: string]: boolean}>({});
   
   // Get camera distance from center to scale orbit paths appropriately
   const cameraDistance = camera.position.length();
-  
-  if (!celestialSystem) {
-    return null;
-  }
-  
-  // Wrap in error boundary
-  if (hasError) {
-    return (
-      <>
-        <ambientLight intensity={0.3} />
-        <FallbackObject name="Error loading scene" />
-      </>
-    );
-  }
+
+  // State to store nearest planet info
+  const [manualZoomContext, setManualZoomContext] = useState<string | null>(null);
   
   // --- Determine the current visibility context --- 
   let contextId: string | null = null;
-  let isSystemView = true; // Assume system view by default
-  let isDetailView = false; // New flag for detail view
+  let isSystemView = cameraDistance > SYSTEM_VIEW_THRESHOLD;
+  let isDetailView = cameraDistance < DETAIL_VIEW_THRESHOLD;
+  
+  // Find the current camera focus point (where the camera is looking)
+  const cameraDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  
+  // Create a raycaster for detecting what the camera is looking at
+  const raycaster = new THREE.Raycaster();
+  const rayOrigin = camera.position.clone();
+  const rayDirection = cameraDirection.clone();
+  raycaster.set(rayOrigin, rayDirection);
 
+  // Track camera zoom change for manual context detection
+  useEffect(() => {
+    // Only run this if we don't have a selected entity but are zoomed in
+    if (!selectedCelestialBodyId && !selectedPointOfInterestId && !selectedJumpPointId && cameraDistance < 5.0) {
+      // We're zoomed in without a selection - find the closest planet
+      if (celestialSystem) {
+        let closestPlanet: CelestialBodyType | null = null;
+        let closestDistance = Infinity;
+        let closestAngle = Infinity;
+        
+        // Convert celestial bodies to intersection test objects
+        const testObjects: THREE.Object3D[] = [];
+        const objectMap = new Map<THREE.Object3D, CelestialBodyType>();
+        
+        celestialSystem.celestialBodies.forEach(body => {
+          if (body.type === 'planet') {
+            // Create a temporary sphere for intersection testing
+            const sphere = new THREE.Mesh(
+              new THREE.SphereGeometry(body.radius * SCENE_SCALE * 1.5), // Make the collision sphere a bit larger
+              new THREE.MeshBasicMaterial({ visible: false })
+            );
+            sphere.position.set(
+              body.position.x * SCENE_SCALE,
+              body.position.y * SCENE_SCALE,
+              body.position.z * SCENE_SCALE
+            );
+            testObjects.push(sphere);
+            objectMap.set(sphere, body);
+          }
+        });
+        
+        // Cast a ray from the camera to see if it hits any planets
+        const intersects = raycaster.intersectObjects(testObjects);
+        
+        // If we hit a planet directly with the ray, use it regardless of distance
+        if (intersects.length > 0 && intersects[0].distance < 10.0) {
+          const hitObject = intersects[0].object;
+          const hitPlanet = objectMap.get(hitObject);
+          
+          if (hitPlanet) {
+            const planetId = hitPlanet.id;
+            if (manualZoomContext !== planetId) {
+              if (DEBUG_VISIBILITY) {
+                console.log(`[DEBUG-VISIBILITY] Ray hit planet: ${hitPlanet.name} (${planetId}), distance: ${intersects[0].distance.toFixed(2)}`);
+              }
+              setManualZoomContext(planetId);
+              return;
+            }
+          }
+        }
+        
+        // Fallback to angle-based detection if ray doesn't hit anything
+        celestialSystem.celestialBodies.forEach(body => {
+          if (body.type === 'planet') {
+            // Get planet position in scene coords
+            const bodyPos = new THREE.Vector3(
+              body.position.x * SCENE_SCALE,
+              body.position.y * SCENE_SCALE,
+              body.position.z * SCENE_SCALE
+            );
+            
+            // Calculate distance from camera to planet
+            const distanceToBody = camera.position.distanceTo(bodyPos);
+            
+            // Calculate angle between camera forward vector and direction to planet
+            const dirToBody = new THREE.Vector3().subVectors(bodyPos, camera.position).normalize();
+            const angleToBody = dirToBody.angleTo(cameraDirection);
+            
+            // Check if this planet is in the camera's field of view (angle < 60 degrees)
+            const inFieldOfView = angleToBody < Math.PI/3;
+            
+            // We prioritize planets in the field of view, but also consider distance
+            if (inFieldOfView && (angleToBody < closestAngle || 
+                               (Math.abs(angleToBody - closestAngle) < 0.1 && distanceToBody < closestDistance))) {
+              closestDistance = distanceToBody;
+              closestAngle = angleToBody;
+              closestPlanet = body;
+            } else if (!inFieldOfView && !closestPlanet && distanceToBody < closestDistance) {
+              // Fallback to closest planet if none are in field of view
+              closestDistance = distanceToBody;
+              closestAngle = angleToBody;
+              closestPlanet = body;
+            }
+          }
+        });
+        
+        // If we found a planet in our view that's close enough
+        if (closestPlanet && (closestDistance < 4.0 || (closestDistance < 10.0 && closestAngle < Math.PI/6))) {
+          const planetId = (closestPlanet as any).id;
+          if (manualZoomContext !== planetId) {
+            if (DEBUG_VISIBILITY) {
+              console.log(`[DEBUG-VISIBILITY] Setting manual zoom context to: ${(closestPlanet as any).name} (${planetId}), distance: ${closestDistance.toFixed(2)}, angle: ${(closestAngle * 180/Math.PI).toFixed(1)}°`);
+            }
+            setManualZoomContext(planetId);
+          }
+        } else if (manualZoomContext) {
+          // Reset context if we're not close to any planet anymore
+          setManualZoomContext(null);
+        }
+      }
+    } else if (manualZoomContext && (selectedCelestialBodyId || cameraDistance >= 5.0)) {
+      // Reset manual context if we select something or zoom out
+      setManualZoomContext(null);
+    }
+  }, [cameraDistance, selectedCelestialBodyId, selectedPointOfInterestId, selectedJumpPointId, celestialSystem, cameraDirection, manualZoomContext, raycaster]);
+  
+  // Determine visibility context from selection or manual zoom
   if (selectedCelestialBodyId) {
     contextId = selectedCelestialBodyId;
     
     // Check if the selected body is a moon, which means we're in detail view
-    const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+    const selectedBody = celestialSystem?.celestialBodies.find(b => b.id === selectedCelestialBodyId);
     if (selectedBody && selectedBody.type === 'moon') {
       isDetailView = true;
     }
     
-    isSystemView = false;
   } else if (selectedPointOfInterestId) {
-    const selectedPOI = celestialSystem.pointsOfInterest.find(p => p.id === selectedPointOfInterestId);
+    const selectedPOI = celestialSystem?.pointsOfInterest.find(p => p.id === selectedPointOfInterestId);
     
     // If the POI has a parent, we're in its context 
     contextId = selectedPOI?.parentId || null;
@@ -260,7 +371,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
     isDetailView = true;
     isSystemView = false;
   } else if (selectedJumpPointId) {
-    const selectedJP = celestialSystem.jumpPoints.find(j => j.id === selectedJumpPointId);
+    const selectedJP = celestialSystem?.jumpPoints.find(j => j.id === selectedJumpPointId);
     
     // If JP has a parent, we're in its context
     contextId = selectedJP?.parentId || null;
@@ -268,20 +379,46 @@ const SceneContent: React.FC<SceneContentProps> = ({
     // All jump point selections automatically trigger detail view
     isDetailView = true;
     isSystemView = false;
+  } else if (manualZoomContext && cameraDistance < 5.0) {
+    // Use manual zoom context if we're zoomed in
+    contextId = manualZoomContext;
+    isSystemView = false;
+    
+    if (DEBUG_VISIBILITY) {
+      console.log(`[DEBUG-VISIBILITY] Using manual zoom context: ${manualZoomContext}`);
+    }
   }
-
+  
   // If no selection or selected item has no parent, context is the root (star)
-  if (isSystemView) {
-    contextId = celestialSystem.rootId;
+  if (isSystemView || !contextId) {
+    contextId = celestialSystem?.rootId || null;
   }
   
-  // Dynamic system view check based on camera distance
-  // If we're far enough from any selected object, treat as transitioning to system view
-  const SYSTEM_VIEW_DISTANCE_THRESHOLD = 7.0; // Distance at which we consider the view "zoomed out"
-  const isTransitioningToSystemView = cameraDistance > SYSTEM_VIEW_DISTANCE_THRESHOLD;
+  // Debug when camera distance changes significantly
+  useFrame(() => {
+    if (DEBUG_VISIBILITY) {
+      const currentDistance = camera.position.length();
+      if (Math.abs(currentDistance - lastCameraDistance.current) > 0.3) {
+        const forwardPoint = new THREE.Vector3().copy(camera.position).add(
+          cameraDirection.clone().multiplyScalar(currentDistance)
+        );
+        
+        console.log(`[DEBUG-VISIBILITY] Camera distance: ${currentDistance.toFixed(3)}, ` +
+                   `isSystemView: ${isSystemView}, manualContext: ${manualZoomContext || 'none'}, ` +
+                   `contextId: ${contextId || 'none'}, ` +
+                   `camera forward: [${forwardPoint.x.toFixed(2)}, ${forwardPoint.y.toFixed(2)}, ${forwardPoint.z.toFixed(2)}]`);
+        
+        lastCameraDistance.current = currentDistance;
+      }
+    }
+  });
   
-  console.log(`[DEBUG] View context: systemView=${isSystemView}, detailView=${isDetailView}, contextId=${contextId}, cameraDistance=${cameraDistance.toFixed(6)}, isTransitioning=${isTransitioningToSystemView}`);
-  // -------------------------------------------
+  // Add debug flag to the filter function
+  const debugFilter = DEBUG_VISIBILITY && cameraDistance >= 1.0 && cameraDistance <= 4.0;
+  
+  if (!celestialSystem) {
+    return null;
+  }
   
   return (
     <>
@@ -334,20 +471,24 @@ const SceneContent: React.FC<SceneContentProps> = ({
               return false;
             }
             
-            // Show children of the focused body (moons) when not in detail view
-            if (!isDetailView && body.parentId === contextId) return true;
-            
-            // Show moons of the parent planet when in detail view focused on a moon
-            if (isDetailView && selectedCelestialBodyId) {
-              const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
-              if (selectedBody && selectedBody.type === 'moon' && selectedBody.parentId && 
-                  body.parentId === selectedBody.parentId) {
-                return true;
+            // Always show child objects of the current context planet
+            // This is the CRITICAL check for showing moons when zoomed in on a planet
+            if (body.parentId === contextId) {
+              if (debugFilter && body.type === 'moon') {
+                console.log(`[DEBUG-VISIBILITY-MOON] ${body.name} (child of context ${contextId}) is visible`);
               }
+              return true;
             }
           }
           
           // Hide other planets/moons
+          if (debugFilter && body.type === 'moon') {
+            const parentBody = body.parentId ? 
+              celestialSystem.celestialBodies.find(b => b.id === body.parentId) : null;
+            
+            console.log(`[DEBUG-VISIBILITY-MOON] ${body.name} filtered out: isSystemView=${isSystemView}, contextId=${contextId}, parentId=${body.parentId}, parentName=${parentBody?.name}`);
+          }
+          
           return false;
         })
         .map((body) => {
@@ -366,15 +507,14 @@ const SceneContent: React.FC<SceneContentProps> = ({
           // Calculate orbit radius for planet/moon orbits
           const orbitRadius = relativePosition ? 
             Math.sqrt(relativePosition.x * relativePosition.x + 
-                      relativePosition.y * relativePosition.y + 
-                      relativePosition.z * relativePosition.z) : 0;
-            
-          // Only log orbit data for planets and moons
-          if (relativePosition && (body.type === 'planet' || body.type === 'moon')) {
-            console.log(`[DEBUG] Orbit data for ${body.name}: relativePos=[${relativePosition.x.toFixed(2)}, ${relativePosition.y.toFixed(2)}, ${relativePosition.z.toFixed(2)}]`);
-            console.log(`[DEBUG] Orbit radius: ${orbitRadius.toFixed(2)}`);
+                    relativePosition.y * relativePosition.y + 
+                    relativePosition.z * relativePosition.z) : 0;
+          
+          // Update the visibility tracker for debugging
+          if (DEBUG_VISIBILITY) {
+            lastObjectVisibility.current[body.id] = true;
           }
-            
+              
           return (
             <React.Fragment key={body.id || Math.random().toString()}>
               <Suspense fallback={<FallbackObject name={body.name} />}>
@@ -442,7 +582,10 @@ const SceneContent: React.FC<SceneContentProps> = ({
                       exponent = 2.0; // Lower exponent for moons in focus view
                     }
                     
-                    const distanceFactor = Math.max(1, Math.pow(cameraDistance, exponent) / 10); // Reduced division factor
+                    // FIXED: Adjust distance factor based on actual camera distance to prevent
+                    // orbits from being too large when zooming in manually
+                    const adjustedDistance = Math.max(0.5, cameraDistance);
+                    const distanceFactor = Math.max(1, Math.pow(adjustedDistance, exponent) / 10); // Reduced division factor
                     
                     // Calculate initial thickness
                     let thickness = baseThickness / distanceFactor;
@@ -474,7 +617,13 @@ const SceneContent: React.FC<SceneContentProps> = ({
                       maxThicknessRatio = isSystemView ? 1.0 : 0.5; // Higher ratio for moons
                     }
                     
-                    const maxThickness = Math.max(minThickness, entityRadius / (orbitRadius * SCENE_SCALE) * maxThicknessRatio);
+                    // FIXED: Apply maximum thickness constraint based on camera distance to prevent
+                    // orbits from being too large when zooming in manually
+                    const maxThickness = Math.min(
+                      Math.max(minThickness, entityRadius / (orbitRadius * SCENE_SCALE) * maxThicknessRatio),
+                      // Add a distance-based maximum constraint
+                      0.2 / Math.max(0.1, adjustedDistance)
+                    );
                     
                     // Apply additional dynamic scaling for very close views
                     if (cameraDistance < 0.5) {
@@ -498,11 +647,6 @@ const SceneContent: React.FC<SceneContentProps> = ({
                     
                     // Apply the entity size constraint
                     const finalThickness = Math.min(Math.max(thickness, minThickness), maxThickness);
-                    
-                    // Log orbit thickness if this is the selected body
-                    if (isSelected) {
-                      console.log(`[DEBUG] Orbit thickness for ${body.name}: ${finalThickness.toFixed(16)}, cameraDistance: ${cameraDistance.toFixed(16)}, entityRadius: ${entityRadius.toFixed(16)}, maxThickness: ${maxThickness.toFixed(16)}`);
-                    }
                     
                     // Increase segments for smoother orbit paths
                     const segments = 128;
@@ -700,28 +844,6 @@ const StarMap: React.FC = () => {
       const container = containerRef.current;
       const containerRect = container.getBoundingClientRect();
       
-      console.log('[DEBUG-LAYOUT] StarMap container dimensions on layout:', {
-        width: containerRect.width,
-        height: containerRect.height
-      });
-      
-      // Log DOM hierarchy
-      let parent = container.parentElement;
-      let hierarchy = [];
-      
-      while (parent) {
-        const rect = parent.getBoundingClientRect();
-        hierarchy.push({
-          tagName: parent.tagName,
-          className: parent.className,
-          width: rect.width,
-          height: rect.height,
-          position: window.getComputedStyle(parent).position
-        });
-        parent = parent.parentElement;
-      }
-      
-      console.log('[DEBUG-LAYOUT] DOM hierarchy:', hierarchy);
     }
   }, []);
   
@@ -731,55 +853,6 @@ const StarMap: React.FC = () => {
       if (containerRef.current) {
         const container = containerRef.current;
         const containerRect = container.getBoundingClientRect();
-        
-        console.log('[DEBUG] StarMap container dimensions:', {
-          width: containerRect.width,
-          height: containerRect.height,
-          offsetWidth: container.offsetWidth,
-          offsetHeight: container.offsetHeight,
-          clientWidth: container.clientWidth, 
-          clientHeight: container.clientHeight,
-          style: container.style.cssText,
-          computedStyle: {
-            width: window.getComputedStyle(container).width,
-            height: window.getComputedStyle(container).height,
-            position: window.getComputedStyle(container).position,
-            display: window.getComputedStyle(container).display
-          }
-        });
-        
-        // Also log parent dimensions
-        if (container.parentElement) {
-          const parentRect = container.parentElement.getBoundingClientRect();
-          console.log('[DEBUG] StarMap parent dimensions:', {
-            width: parentRect.width,
-            height: parentRect.height,
-            className: container.parentElement.className,
-            computedStyle: {
-              width: window.getComputedStyle(container.parentElement).width,
-              height: window.getComputedStyle(container.parentElement).height,
-              position: window.getComputedStyle(container.parentElement).position,
-              display: window.getComputedStyle(container.parentElement).display
-            }
-          });
-        }
-        
-        // Check canvas element 
-        const canvasElement = container.querySelector('canvas');
-        if (canvasElement) {
-          const canvasRect = canvasElement.getBoundingClientRect();
-          console.log('[DEBUG] Canvas dimensions:', {
-            width: canvasRect.width,
-            height: canvasRect.height,
-            style: canvasElement.style.cssText,
-            computedStyle: {
-              width: window.getComputedStyle(canvasElement).width,
-              height: window.getComputedStyle(canvasElement).height,
-              position: window.getComputedStyle(canvasElement).position,
-              display: window.getComputedStyle(canvasElement).display
-            }
-          });
-        }
       }
     };
     
@@ -792,8 +865,6 @@ const StarMap: React.FC = () => {
   }, []);
   
   const resetCameraView = () => {
-    console.log("StarMap: Resetting view via state update.");
-    // CameraController will handle the reset when selectedCelestialBodyId becomes null
     selectCelestialBody(null); 
   };
 
@@ -820,7 +891,6 @@ const StarMap: React.FC = () => {
   };
   
   const handleLabelDistanceChange = (scale: number) => {
-    console.log(`Setting label distance scale to: ${scale.toFixed(2)}`);
     setLabelDistanceScale(scale);
   };
   
@@ -859,13 +929,6 @@ const StarMap: React.FC = () => {
           gl={{ antialias: true, logarithmicDepthBuffer: true, alpha: true }}
           onCreated={({ gl, size, camera }) => {
             configureRenderer(gl);
-            // Log initial canvas size
-            console.log('[DEBUG] Canvas initial size:', size);
-            
-            // Log camera aspect ratio
-            if (camera instanceof THREE.PerspectiveCamera) {
-              console.log('[DEBUG] Camera FOV:', camera.fov, 'Aspect:', camera.aspect);
-            }
           }}
           resize={{ scroll: false, debounce: { scroll: 50, resize: 0 } }}
           camera={{ position: [0, 0, 5], near: 0.00001, far: 1000 }}
@@ -904,25 +967,19 @@ const CameraStateReader: React.FC<{
   const threshold = 0.01; // Only update if changed by more than this amount
 
   useFrame(() => {
-    console.log('[CameraStateReader] useFrame running.');
     const currentPos = camera.position;
     const currentTarget = controls?.target;
 
     if (!currentTarget) {
-        console.log('[CameraStateReader] Controls or target not found.');
         return;
     }
     
-    console.log('[CameraStateReader] Current Pos:', currentPos.x, 'Target:', currentTarget.x);
-
     if (currentPos.distanceTo(lastPos.current) > threshold || 
         currentTarget.distanceTo(lastTarget.current) > threshold) {
       
-      console.log('[CameraStateReader] Change threshold exceeded. Attempting update.');
       const clonedPos = currentPos.clone();
       const clonedTarget = currentTarget.clone();
       
-      console.log('[CameraStateReader] Updating camera state:', clonedPos, clonedTarget);
       setPos(clonedPos); 
       setTarget(clonedTarget);
       
@@ -946,7 +1003,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 
   componentDidCatch(error: any, errorInfo: any) {
-    console.error("Error in scene rendering:", error, errorInfo);
   }
 
   render() {

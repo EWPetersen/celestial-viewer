@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { CelestialBody, CelestialSystem, JumpPoint, PointOfInterest } from '../../stores/useAppStore';
 import { ProcessedEntity, SystemData } from './interfaces';
 
@@ -98,19 +97,9 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
     throw new Error('Invalid system data: no entities found');
   }
   
-  console.log('Converting system data to CelestialSystem format', {
-    rootId: systemData.root,
-    totalEntities: Object.keys(systemData.entities).length
-  });
-
   // Get the root entity
   const rootEntity = systemData.entities[systemData.root];
   if (!rootEntity) {
-    console.error('System data structure:', {
-      rootId: systemData.root,
-      entityIds: Object.keys(systemData.entities),
-      entityCount: Object.keys(systemData.entities).length
-    });
     throw new Error('Root entity not found in system data');
   }
   
@@ -149,13 +138,6 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
         // Treat unknown types as points of interest
         pointsOfInterest.push(entityToPointOfInterest(entity, systemData));
     }
-  });
-  
-  // Log the results for debugging
-  console.log('Processed entities:', {
-    celestialBodies: celestialBodies.length,
-    pointsOfInterest: pointsOfInterest.length,
-    jumpPoints: jumpPoints.length
   });
   
   // Create the CelestialSystem object

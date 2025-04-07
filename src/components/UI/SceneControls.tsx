@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import useAppStore, { CelestialBody, JumpPoint, PointOfInterest } from '../../stores/useAppStore';
 import { EntityType } from '../EntityVisuals';
 import * as THREE from 'three'; // Import THREE for Vector3 type
@@ -22,26 +22,69 @@ interface SceneControlsProps {
 
 const SceneControls: React.FC<SceneControlsProps> = ({ 
   onFilterChange, 
-  onFocusEntity, // Destructure new props
-  onResetView,    // Destructure new props
-  onToggleLabels, // Destructure label toggle prop
-  onToggleOrbits, // Destructure orbit toggle prop
-  onLabelDistanceChange, // Destructure label distance change prop
-  labelsVisible,  // Destructure label visibility state
-  orbitsVisible,  // Destructure orbit visibility state
-  cameraPosition, // Destructure camera props
-  cameraTarget    // Destructure camera props
+  onFocusEntity,
+  onResetView,
+  onToggleLabels,
+  onToggleOrbits,
+  onLabelDistanceChange,
+  labelsVisible,
+  orbitsVisible,
+  cameraPosition,
+  cameraTarget
 }) => {
   const { celestialSystem, selectedCelestialBodyId, selectCelestialBody } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false); // Add collapsed state
-  const [labelDistance, setLabelDistance] = useState(1.0); // Local state for label distance
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [labelDistance, setLabelDistance] = useState(1.0);
 
-  // Log received camera props
-  useEffect(() => {
-    console.log('[SceneControls] Received props:', { cameraPosition, cameraTarget });
-  }, [cameraPosition, cameraTarget]);
+  // Define all callbacks at the top level
+  const handleFocusEntity = useCallback((entityId: string) => {
+    if (onFocusEntity) {
+      onFocusEntity(entityId);
+    }
+  }, [onFocusEntity]);
+
+  const handleFilterChange = useCallback((type: EntityType) => {
+    setHiddenTypes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      
+      if (onFilterChange) {
+        onFilterChange(newSet);
+      }
+      
+      return newSet;
+    });
+  }, [onFilterChange]);
+
+  const handleResetView = useCallback(() => {
+    if (onResetView) {
+      onResetView();
+    }
+  }, [onResetView]);
+
+  const handleResetFilters = useCallback(() => {
+    setHiddenTypes(new Set<EntityType>());
+    
+    if (onFilterChange) {
+      onFilterChange(new Set<EntityType>());
+    }
+  }, [onFilterChange]);
+
+  const handleToggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
+
+  const handleLabelDistanceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setLabelDistance(value);
+    onLabelDistanceChange(value);
+  }, [onLabelDistanceChange]);
 
   // Call onFilterChange whenever hiddenTypes changes
   useEffect(() => {
@@ -65,55 +108,6 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   const filteredEntities = allEntities.filter(entity => 
     entity.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // --- Event Handlers ---
-
-  const handleEntitySelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const entityId = event.target.value;
-    if (entityId) {
-      // Use the prop callback for focusing
-      onFocusEntity(entityId);
-      // console.log(`Focus requested on entity: ${entityId}`);
-    }
-  };
-
-  const handleToggleEntityType = (type: EntityType) => {
-    setHiddenTypes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(type)) {
-        newSet.delete(type);
-      } else {
-        newSet.add(type);
-      }
-      // No longer need to call console.log here, handled by useEffect -> onFilterChange
-      // console.log("Hidden types:", Array.from(newSet));
-      return newSet;
-    });
-  };
-
-  const handleResetViewInternal = () => {
-    selectCelestialBody(null); // Deselect any entity
-    // Use the prop callback for resetting view
-    onResetView();
-    // console.log("Reset view requested");
-  };
-  
-  const handleResetFilters = () => {
-      setHiddenTypes(new Set());
-      // useEffect will call onFilterChange with the empty set
-      // console.log("Filters reset");
-  };
-
-  const handleToggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
-  // Handler for label distance slider
-  const handleLabelDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setLabelDistance(value);
-    onLabelDistanceChange(value);
-  };
 
   // --- Styles --- (Inline for simplicity, consider CSS modules or styled-components)
   const controlPanelStyle: React.CSSProperties = {
@@ -245,7 +239,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
               id="entity-select" 
               style={selectStyle}
               value={selectedCelestialBodyId || ''}
-              onChange={handleEntitySelect}
+              onChange={(e) => handleFocusEntity(e.target.value)}
             >
               <option value="">-- Select Entity --</option>
               {filteredEntities
@@ -282,7 +276,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
                 <button 
                   key={type}
                   style={filterButtonStyle(!hiddenTypes.has(type))}
-                  onClick={() => handleToggleEntityType(type)}
+                  onClick={() => handleFilterChange(type)}
                   title={`Toggle ${type}`}
                 >
                   {type}
@@ -317,7 +311,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
           <div style={sectionStyle}>
             <button 
               style={{...buttonStyle, width: 'calc(100% - 6px)'}}
-              onClick={handleResetViewInternal}
+              onClick={handleResetView}
             >
               Reset View
             </button>

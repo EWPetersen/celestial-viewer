@@ -21,12 +21,12 @@ export const STATION_TARGET_FOCUS_DIAMETER_KM = 2000; // Target view diameter in
 
 // --- Label Distance Constants ---
 export const SYSTEM_VIEW_LABEL_SCALE = {
-  star: 4,          // How much further labels appear from stars in system view
-  planet: 4.0,        // How much further labels appear from planets in system view
-  moon: 1.5,          // How much further labels appear from moons in system view
-  jumppoint: 1.5,     // How much further labels appear from jump points in system view
-  station: 1.2,       // How much further labels appear from stations in system view
-  default: 1.0        // Default multiplier for other objects
+  star: 5.0,        // Increased to prevent label from sinking at any zoom level (was 4.5)
+  planet: 5.5,      // Increased to prevent label from sinking at any zoom level (was 5.0)
+  moon: 3.0,        // Increased for better visibility of moon labels (was 2.0)
+  jumppoint: 2.0,   // Increased for better visibility at system view (was 1.5)
+  station: 1.5,     // Increased for better visibility at system view (was 1.2)
+  default: 1.5      // Default multiplier for other objects (was 1.0)
 };
 
 // Base visual sizes for different entity types

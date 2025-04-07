@@ -51,29 +51,29 @@ const DETAIL_VIEW_SCALE_FACTORS = {
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.008,          // Further from the surface for stars
-  planet: 0.003,        // Further for planets
-  moon: 0.002,          // Default for moons
-  station: 0.001,        // Closer for stations
-  reststop: 0.0050,     // Closer for reststops
-  landingzone: 0.001,   // Closer for landing zones
-  commarray: 0.001,      // Closer for comm arrays
-  outpost: 0.001,       // Closer for outposts
-  jumppoint: 0.09,      // Default for jump points
-  lagrangepoint: 0.1,   // Default for lagrange points
-  unknown: 0.55         // Default for unknown types
+  star: 0.01,           // Increased to ensure further distance from star (was 0.008)
+  planet: 0.004,        // Increased for planets (was 0.003)
+  moon: 0.003,          // Increased for moons (was 0.002)
+  station: 0.004,       // Closer to the station (was 0.001)
+  reststop: 0.003,      // Closer to the object (was 0.0030)
+  landingzone: 0.003,   // Closer to the landing zone (was 0.003)
+  commarray: 0.001,     // Much closer to the comm array (was 0.0005)
+  outpost: 0.001,       // Closer to outposts (was 0.0005)
+  jumppoint: 0.06,      // Increased for jump points (was 0.05)
+  lagrangepoint: 0.04,  // Increased for lagrange points (was 0.03)
+  unknown: 0.08         // Default for unknown types
 };
 
 // Detail view label distances (override when in detail view)
 const DETAIL_VIEW_LABEL_DISTANCES = {
-  moon: 0.004,          // Adjusted for detail view of moons
-  station: 0.015,       // Adjusted for detail view of stations
-  reststop: 0.01,       // Adjusted for detail view of reststops
-  landingzone: 0.002,   // Adjusted for detail view of landing zones
-  commarray: 0.015,     // Adjusted for detail view of comm arrays
-  outpost: 0.002,       // Adjusted for detail view of outposts
-  jumppoint: 0.12,      // Adjusted for detail view of jump points
-  unknown: 0.6          // Default for detail view
+  moon: 0.004,          // Increased for better visibility at planetary view (was 0.003)
+  station: 0.002,       // Closer to the station (was 0.0008)
+  reststop: 0.004,      // Closer to reststops (was 0.004)
+  landingzone: 0.002,   // Closer to landing zones (was 0.0003)
+  commarray: 0.002,     // Closer to comm arrays (was 0.0008)
+  outpost: 0.003,       // Closer to outposts (was 0.003)
+  jumppoint: 0.025,     // Closer to jump points (was 0.02)
+  unknown: 0.2          // Closer for unknown types (was 0.2)
 };
 
 // Get object radius multiplier for different entity types
@@ -101,21 +101,21 @@ const LABEL_SCALE_FACTORS = {
   landingzone: 0.85,   // Smaller
   commarray: 0.85,     // Smaller
   jumppoint: 1.0,      // Normal sizing
-  lagrangepoint: 3,  // Increased from 0.9 for better visibility
+  lagrangepoint: 3,    // Increased from 0.9 for better visibility
   outpost: 0.9,        // Slightly smaller
   unknown: 1.0         // Default sizing
 };
 
 // Detail view label scale factors
 const DETAIL_VIEW_LABEL_SCALE_FACTORS = {
-  moon: 1.3,           // Larger labels for moons in detail view
+  moon: 2.0,           // Increased for better visibility in detail/planetary view (was 1.3)
   station: 1.2,        // Larger labels for stations in detail view
   reststop: 1.2,       // Larger labels for reststops in detail view
   landingzone: 1.2,    // Larger labels for landing zones in detail view
   commarray: 1.2,      // Larger labels for comm arrays in detail view
   outpost: 1.2,        // Larger labels for outposts in detail view
-  jumppoint: 1,      // Larger labels for jump points in detail view
-  lagrangepoint: 3,  // Larger labels for lagrange points in detail view
+  jumppoint: 1,        // Larger labels for jump points in detail view
+  lagrangepoint: 3,    // Larger labels for lagrange points in detail view
   unknown: 1.2         // Default for unknown types in detail view
 };
 
@@ -241,35 +241,27 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     e.stopPropagation();
     if (!selectable) return;
 
-    console.log(`[EntityRenderer] handleClick: Entity ID=${id}, Type Category=${normalizedType}, Prop Type=${type}`);
-
     // Based on the normalized category, call the appropriate selector
     try {
         switch (normalizedType) {
             case 'celestialBody':
-                console.log(`[EntityRenderer] Calling selectCelestialBody(${id})`);
                 selectCelestialBody(id);
                 break;
             case 'pointOfInterest':
                  if (selectPointOfInterest) {
-                    console.log(`[EntityRenderer] Calling selectPointOfInterest(${id})`);
                     selectPointOfInterest(id);
                  } else {
-                     console.warn("[EntityRenderer] selectPointOfInterest function not found in store!");
                      selectCelestialBody(id); // Fallback if necessary, though problematic
                  }
                 break;
             case 'jumpPoint':
                 if (selectJumpPoint) {
-                    console.log(`[EntityRenderer] Calling selectJumpPoint(${id})`);
                     selectJumpPoint(id);
                 } else {
-                    console.warn("[EntityRenderer] selectJumpPoint function not found in store!");
                     selectCelestialBody(id); // Fallback
                 }
                 break;
             default:
-                console.warn(`[EntityRenderer] Click on unhandled type category: ${normalizedType}`);
                 // Optionally select as celestial body as a default?
                 // selectCelestialBody(id);
                 break;
@@ -301,19 +293,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   
   // Debug moon positions during render
   useEffect(() => {
-    if (type === 'moon') {
-      console.log(`[MOON-DEBUG-RENDER] Moon "${name}" (ID: ${id}) position:`);
-      console.log(`[MOON-DEBUG-RENDER] - Original: [${safePosition.x.toFixed(16)}, ${safePosition.y.toFixed(16)}, ${safePosition.z.toFixed(16)}]`);
-      console.log(`[MOON-DEBUG-RENDER] - Scaled for scene: [${scenePosition.x.toFixed(16)}, ${scenePosition.y.toFixed(16)}, ${scenePosition.z.toFixed(16)}]`);
-      
-      if (relativePosition) {
-        console.log(`[MOON-DEBUG-RENDER] - Relative to parent: [${relativePosition.x.toFixed(16)}, ${relativePosition.y.toFixed(16)}, ${relativePosition.z.toFixed(16)}]`);
-      }
-      
-      if (isCurrentlySelected) {
-        console.log(`[MOON-DEBUG-RENDER] - SELECTED: This moon is currently selected!`);
-      }
-    }
+    // Removed all debug logging for moon positions
   }, [type, name, id, safePosition, scenePosition, relativePosition, isCurrentlySelected]);
 
   // Dynamic Scaling Logic within useFrame
@@ -321,12 +301,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     if (!groupRef.current) return;
     const distance = camera.position.distanceTo(groupRef.current.position);
 
-    // Special debug for moons - log camera distance
-    if (type === 'moon' && isCurrentlySelected) {
-      console.log(`[MOON-DEBUG-CAMERA] Camera distance to selected moon "${name}": ${distance.toFixed(16)}`);
-      console.log(`[MOON-DEBUG-CAMERA] Camera position: [${camera.position.toArray().map((v: number) => v.toFixed(16)).join(', ')}]`);
-      console.log(`[MOON-DEBUG-CAMERA] Moon position: [${scenePosition.x.toFixed(16)}, ${scenePosition.y.toFixed(16)}, ${scenePosition.z.toFixed(16)}]`);
-    }
+    // Removed all debug logging for moon camera distances
 
     // Detect if we're in detail view based on camera distance and entity type
     const isDetailViewCandidateType = isDetailViewEntityType(type as string);
@@ -334,9 +309,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     if (newDetailViewState !== isInDetailView) {
       setIsInDetailView(newDetailViewState);
-      if (isCurrentlySelected && type !== 'star' && type !== 'planet') {
-        console.log(`[EntityRenderer] ${name} detail view state changed to: ${newDetailViewState}, distance=${distance.toFixed(12)}`);
-      }
+      // Removed debug logging for detail view state changes
     }
 
     // --- Select parameters based on type --- 
@@ -392,10 +365,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     
     // Define zoom range thresholds for a continuous curve
     const CLOSE_ZOOM_THRESHOLD = 0.1;        // Very close view (detail)
-    const MID_ZOOM_THRESHOLD = 1.0;          // Mid-range view
-    const FAR_MID_ZOOM_THRESHOLD = 3.0;      // Far-mid range
-    const SYSTEM_VIEW_THRESHOLD_START = 4.2; // Start of system view transition
-    const SYSTEM_VIEW_THRESHOLD_END = 5.8;   // End of system view transition
+    const MID_ZOOM_THRESHOLD = 0.8;          // Mid-range view starts earlier
+    const FAR_MID_ZOOM_THRESHOLD = 3.5;      // Far-mid range extends further
+    const SYSTEM_VIEW_THRESHOLD_START = 4.0; // Start of system view transition earlier
+    const SYSTEM_VIEW_THRESHOLD_END = 6.2;   // End of system view transition later
     
     // Calculate target distance ratio based on camera distance
     let targetDistanceRatio = 0.5;
@@ -411,21 +384,29 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const closeRangeRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, CLOSE_ZOOM_THRESHOLD), 0.8));
       
       // For mid-zoom views, use a higher minimum ratio for better visuals
-      const midRangeTargetRatio = type === 'planet' ? 2.5 : (type === 'moon' ? 2.0 : 1.5);
+      // Increase minimum ratio for all types to prevent label sinking
+      const midRangeTargetRatio = type === 'planet' ? 3.5 : 
+                                (type === 'star' ? 3.0 : 
+                                (type === 'moon' ? 2.5 : 2.0));
       
       // Smooth interpolation between close and mid range
       targetDistanceRatio = closeRangeRatio * (1 - tZoom) + midRangeTargetRatio * tZoom;
     }
     else if (distance <= FAR_MID_ZOOM_THRESHOLD) {
-      // Mid to far-mid range
+      // Mid to far-mid range - Increased ratios to prevent sinking
       const tZoom = (distance - MID_ZOOM_THRESHOLD) / (FAR_MID_ZOOM_THRESHOLD - MID_ZOOM_THRESHOLD);
       
-      // Start with different mid-range ratios based on entity type
-      const midRangeRatio = type === 'planet' ? 2.5 : (type === 'moon' ? 2.0 : 1.5);
+      // Start with different mid-range ratios based on entity type - increased for all types
+      const midRangeRatio = type === 'planet' ? 3.5 : 
+                          (type === 'star' ? 3.0 : 
+                          (type === 'moon' ? 2.5 : 2.0));
       
       // Far-mid range should start transitioning toward system view values
       // Higher values for planets and stars to keep labels clear
-      const farMidTargetRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      // Significantly increased values to prevent label sinking
+      const farMidTargetRatio = type === 'planet' ? 4.5 : 
+                              (type === 'star' ? 4.0 : 
+                              (type === 'moon' ? 3.0 : 2.5));
       
       // Smooth interpolation between mid and far-mid range
       targetDistanceRatio = midRangeRatio * (1 - tZoom) + farMidTargetRatio * tZoom;
@@ -435,21 +416,26 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const tZoom = (distance - FAR_MID_ZOOM_THRESHOLD) / (SYSTEM_VIEW_THRESHOLD_START - FAR_MID_ZOOM_THRESHOLD);
       
       // Start with different far-mid ratios based on entity type
-      const farMidRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      const farMidRatio = type === 'planet' ? 4.5 : 
+                        (type === 'star' ? 4.0 : 
+                        (type === 'moon' ? 3.0 : 2.5));
       
-      // Target the initial system view ratio
+      // Target the initial system view ratio - use smoothed transition to system view
       const systemInitialRatio = 
         SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
         SYSTEM_VIEW_LABEL_SCALE.default;
       
+      // Use smoothstep for smoother transition to prevent bouncing
+      const smoothTZoom = smoothstep(0, 1, tZoom);
+      
       // Smooth interpolation to system view start
-      targetDistanceRatio = farMidRatio * (1 - tZoom) + systemInitialRatio * tZoom;
+      targetDistanceRatio = farMidRatio * (1 - smoothTZoom) + systemInitialRatio * smoothTZoom;
     }
     else if (distance <= SYSTEM_VIEW_THRESHOLD_END) {
-      // System view transition zone
+      // System view transition zone - use a longer, smoother transition to prevent bouncing
       const tZoom = (distance - SYSTEM_VIEW_THRESHOLD_START) / (SYSTEM_VIEW_THRESHOLD_END - SYSTEM_VIEW_THRESHOLD_START);
-      // Apply smoothstep for more natural transition
-      const smoothTZoom = smoothstep(0, 1, tZoom);
+      // Apply double smoothstep for even more natural transition to eliminate bouncing
+      const smoothTZoom = smoothstep(0, 1, smoothstep(0, 1, tZoom));
       
       // Get the appropriate system-view scaling factor for this entity type
       const systemScaleFactor = 
@@ -457,9 +443,11 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         SYSTEM_VIEW_LABEL_SCALE.default;
         
       // Calculate the far-mid ratio as the starting point
-      const farMidRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      const farMidRatio = type === 'planet' ? 4.5 : 
+                        (type === 'star' ? 4.0 : 
+                        (type === 'moon' ? 3.0 : 2.5));
       
-      // Interpolate between far-mid ratio and system scale factor using the smoothed factor
+      // Interpolate between far-mid ratio and system scale factor using the doubly smoothed factor
       targetDistanceRatio = farMidRatio * (1 - smoothTZoom) + systemScaleFactor * smoothTZoom;
     }
     else {
@@ -525,7 +513,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const distanceChanged = Math.abs(distance - lastLoggedDistance) > 0.01;
       
       if (scaleChanged || distanceChanged) {
-        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(12)}, meshScale=${finalScale.toFixed(12)}, detailView=${isInDetailView}, camPos=[${camera.position.toArray().map((v: number) => v.toFixed(12)).join(', ')}]`);
+        // Removed debug logging for scale updates
         
         // Update last logged values
         setLastLoggedScale(finalScale);
@@ -546,7 +534,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Calculate orbit radius using relative position
     const { x, y, z } = relativePosition;
     const radius = Math.sqrt(x*x + y*y + z*z) * SCENE_SCALE;
-    console.log(`[DEBUG] Orbit for ${name}: relativePosition=(${x.toFixed(12)}, ${y.toFixed(12)}, ${z.toFixed(12)}), radius=${radius.toFixed(12)}`);
+    // Removed debug logging for orbit calculations
     return radius;
   }, [relativePosition, name]);
   
@@ -587,9 +575,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
 
   // Debug log for parent position if available
   useEffect(() => {
-    if (parentPosition) {
-      console.log(`[DEBUG] Parent position for ${name}: (${parentPosition.x.toFixed(12)}, ${parentPosition.y.toFixed(12)}, ${parentPosition.z.toFixed(12)})`);
-    }
+    // Removed debug logging for parent positions
   }, [parentPosition, name]);
 
   // Create a fallback entity for error cases
@@ -650,27 +636,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     const adjustedLabelDistance = baseLabelDistance * distanceRatio;
     
     // Build debug info string - only include necessary info
-    const debugInfo = `distanceRatio=${distanceRatio.toFixed(6)}, detailView=${isInDetailView}, camDist=${cameraDistance.toFixed(12)}, animating=${isAnimatingLabelRef.current}`;
+    const debugInfo = ''; // Removed debug info string
 
-    // --- Debug Logging for Planets/Moons ---
-    if ((type === 'planet' || type === 'moon') && isCurrentlySelected) {
-        console.log(`[EntityRenderer Debug - ${name}] 
-          Type: ${type}, 
-          BaseLabelDist: ${baseLabelDistance.toFixed(12)}, 
-          CamDist: ${cameraDistance.toFixed(12)}, 
-          DistRatio: ${distanceRatio.toFixed(12)}, 
-          AdjLabelDist: ${adjustedLabelDistance.toFixed(12)}, 
-          ParentScale(finalScale): ${currentVisualScale.toFixed(12)}, 
-          LabelScaleFactor: ${labelScaleFactor.toFixed(12)}, 
-          FinalLabelScale: ${finalLabelScale.toFixed(12)},
-          DetailView: ${isInDetailView},
-          Animating: ${isAnimatingLabelRef.current},
-          CamPos: [${camera.position.x.toFixed(12)}, ${camera.position.y.toFixed(12)}, ${camera.position.z.toFixed(12)}]`);
-    }
-    // --- End Debug Logging ---
+    // Removed debug logging for planets/moons
 
-    // No debug logging in render function - it would log on every render cycle
-    
     return (
       <group 
         ref={groupRef}
@@ -682,6 +651,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
           size={scaledSize}
           isSelected={isCurrentlySelected}
           color={color}
+          name={name}
         />
         {showLabel && (
           <EntityLabel

@@ -41,6 +41,7 @@ export interface CelestialMeshProps {
   size: number;
   isSelected?: boolean;
   color?: string;
+  name?: string;
 }
 
 /**

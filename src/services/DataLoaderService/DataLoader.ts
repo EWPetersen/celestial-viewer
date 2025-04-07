@@ -59,70 +59,40 @@ export class DataLoader {
    * @returns Promise with the processed system data
    */
   public async loadSystemData(forceRefresh: boolean = false): Promise<SystemData> {
-    // Return cached data if available and refresh not forced
     if (this.cachedSystemData && !forceRefresh) {
-      return Promise.resolve(this.cachedSystemData);
+      return this.cachedSystemData;
     }
 
     try {
-      console.log(`Fetching celestial data from: ${this.dataPath}`);
+      // Fetch data from the configured path
       const response = await fetch(this.dataPath);
       
       if (!response.ok) {
-        throw new Error(`Failed to load data: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch celestial data: ${response.status} ${response.statusText}`);
       }
       
       // Parse the complete JSON response without any preprocessing
       const jsonData = await response.json() as CelestialEntity;
-      console.log('JSON Data structure:', { 
-        name: jsonData.name, 
-        type: jsonData.type, 
-        hasPosition: !!jsonData.position,
-        position: jsonData.position,
-        childrenCount: jsonData.children?.length ?? 0
-      });
       
       // Validate the root entity
       this.validateRootEntity(jsonData);
       
       // Additional debugging to check entity structure
       const entityCounts: Record<string, number> = {};
-      let totalEntities = 0;
       
       traverseEntityHierarchy(jsonData, [], (entity, path) => {
-        totalEntities++;
         entityCounts[entity.type] = (entityCounts[entity.type] || 0) + 1;
-        
-        // Log the first few entities of each type for debugging
-        if ((entityCounts[entity.type] || 0) <= 2) {
-          console.log(`Entity at path ${path.join(' > ')}:`, {
-            name: entity.name,
-            type: entity.type,
-            position: entity.position
-          });
-        }
       });
-      
-      console.log('Entity counts by type:', entityCounts, 'Total entities:', totalEntities);
       
       // Process the data and compute absolute positions
       const systemData = this.processSystemData(jsonData);
       
-      // Log some data for debugging
-      console.log('Processed system data:', {
-        rootId: systemData.root,
-        rootExists: !!systemData.entities[systemData.root],
-        totalEntities: Object.keys(systemData.entities).length,
-        entityTypes: Object.keys(systemData.entityByType)
-      });
-      
       // Cache the processed data
       this.cachedSystemData = systemData;
-      
       return systemData;
+      
     } catch (error) {
-      console.error('Error loading celestial data:', error);
-      throw error;
+      throw new Error(`Error loading system data: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   

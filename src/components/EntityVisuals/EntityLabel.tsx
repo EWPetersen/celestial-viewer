@@ -11,6 +11,22 @@ const MIN_FONT_SIZE = 1;
 const BASE_LABEL_SIZE = 0.01;
 const DISTANCE_COEFFICIENT = 0.1; // Controls how much distance affects the label size
 
+// Minimum visibility distance values for different entity types
+const MIN_VISIBLE_DISTANCES = {
+  star: 0.02,
+  planet: 0.015,
+  moon: 0.01,
+  default: 0.005
+};
+
+// Maximum visibility distance values for different entity types
+const MAX_VISIBLE_DISTANCES = {
+  star: 15.0,
+  planet: 10.0,
+  moon: 5.0,
+  default: 3.0
+};
+
 /**
  * Simplified label component that renders text directly attached to celestial bodies
  */
@@ -84,14 +100,32 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     let typeSizeFactor = 1.0;
     if (type === 'star') typeSizeFactor = 2;
     else if (type === 'planet') typeSizeFactor = 1.0;
-    else if (type === 'moon') typeSizeFactor = 1.0;
+    else if (type === 'moon') {
+      // Increase moon label size across a wider range of distances (0.8-6.0 units)
+      // This covers the specific camera positions in the bug report
+      if (distanceToCamera >= 0.8 && distanceToCamera <= 6.0) {
+        typeSizeFactor = 2.0; // Double size at planetary view
+      } else {
+        typeSizeFactor = 1.0;
+      }
+    }
     else if (type === 'station') typeSizeFactor = 0.9;
     else if (type === 'jumppoint') typeSizeFactor = 4;
     else if (type === 'lagrangepoint') typeSizeFactor = 5; // Increased for better visibility
     
-    // Calculate constant screen-space size (similar to how Stanton label works)
-    // This maintains visual size regardless of camera distance
-    const screenSpaceFontSize = BASE_LABEL_SIZE * typeSizeFactor;
+    // Apply additional smoothing for Stanton label specifically
+    const isStar = type === 'star';
+    const isStanton = text === 'Stanton' && isStar;
+    
+    // Apply smoothed screen-space font size with extra smoothing for Stanton
+    let screenSpaceFontSize = BASE_LABEL_SIZE * typeSizeFactor;
+    
+    // For Stanton specifically, add extra smoothing based on camera distance
+    if (isStanton) {
+      // Apply additional distance-based size adjustment for smoother transitions
+      const distanceFactor = Math.min(1.0, Math.max(0.85, 1.0 - (distanceToCamera / 10.0) * 0.15));
+      screenSpaceFontSize *= distanceFactor;
+    }
     
     // Apply the font size 
     if (textRef.current.fontSize !== screenSpaceFontSize) {
@@ -103,13 +137,11 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     let opacity = 1.0;
     
     // Different object types have different visibility distances
-    const maxVisibleDistance = type === 'star' ? 15.0 : 
-                              type === 'planet' ? 10.0 : 
-                              type === 'moon' ? 5.0 : 3.0;
+    const maxVisibleDistance = MAX_VISIBLE_DISTANCES[type as keyof typeof MAX_VISIBLE_DISTANCES] || 
+                              MAX_VISIBLE_DISTANCES.default;
     
-    const minVisibleDistance = type === 'star' ? 0.02 : 
-                              type === 'planet' ? 0.015 : 
-                              type === 'moon' ? 0.01 : 0.005;
+    const minVisibleDistance = MIN_VISIBLE_DISTANCES[type as keyof typeof MIN_VISIBLE_DISTANCES] || 
+                              MIN_VISIBLE_DISTANCES.default;
     
     // Fade out when too close or too far
     if (distanceToCamera > maxVisibleDistance) {
@@ -123,37 +155,9 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
       textRef.current.material.opacity = opacity;
     }
     
-    // Only log when selected AND values have changed significantly
-    if (isSelected) {
-      const worldPos = new THREE.Vector3();
-      groupRef.current.getWorldPosition(worldPos);
-      
-      const positionChanged = worldPos.distanceTo(lastLoggedPosition) > 0.01;
-      const distanceChanged = Math.abs(distanceToCamera - lastLoggedDistance) > 0.05;
-      const angleChanged = Math.abs(rotationAngle - lastLoggedAngle) > 0.1;
-      const fontSizeChanged = Math.abs(screenSpaceFontSize - lastLoggedFontSize) > 0.01;
-      
-      if (positionChanged || distanceChanged || angleChanged || fontSizeChanged) {
-        console.log(`[Label Update] ${safeText}: pos=[${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}], 
-          dist=${distanceToCamera.toFixed(4)}, angle=${rotationAngle.toFixed(2)}, 
-          fontSize=${screenSpaceFontSize.toFixed(4)}, opacity=${opacity.toFixed(2)}, ${debugInfo}`);
-        
-        // Update last logged values
-        setLastLoggedPosition(worldPos.clone());
-        setLastLoggedDistance(distanceToCamera);
-        setLastLoggedAngle(rotationAngle);
-        setLastLoggedFontSize(screenSpaceFontSize);
-      }
-    }
-    // --- Debug Logging for Planets/Moons ---
-    if ((type === 'planet' || type === 'moon') && (Math.abs(opacity - 1.0) > 0.01 || Math.abs(screenSpaceFontSize - lastLoggedFontSize) > 0.01)) {
-        console.log(`[EntityLabel Debug - ${safeText}] 
-          Type: ${type}, 
-          FinalFontSize: ${screenSpaceFontSize.toFixed(4)}, 
-          Opacity: ${opacity.toFixed(2)}, 
-          IsSelected: ${isSelected}`);
-    }
-    // --- End Debug Logging ---
+    // Removed logging when selected
+    
+    // Removed debug logging for planets/moons
   });
   
   try {
@@ -167,8 +171,6 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
           anchorX="center"
           anchorY="bottom"
           renderOrder={getRenderPriority()}
-          // outlineWidth={0.02} // Remove outline
-          // outlineColor="#000000" // Remove outline
         >
           {safeText}
         </Text>
