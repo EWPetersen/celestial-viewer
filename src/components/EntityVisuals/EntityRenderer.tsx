@@ -509,62 +509,94 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // This makes labels move further away when very close to avoid occlusion
     let distanceRatio = 0.5;
     
-    // Determine if we're in system view based on camera distance with a transition zone
-    const isSystemView = cameraDistance > SYSTEM_VIEW_THRESHOLD;
+    // Define zoom range thresholds for a continuous curve
+    const CLOSE_ZOOM_THRESHOLD = 0.1;        // Very close view (detail)
+    const MID_ZOOM_THRESHOLD = 1.0;          // Mid-range view
+    const FAR_MID_ZOOM_THRESHOLD = 3.0;      // Far-mid range
+    const SYSTEM_VIEW_THRESHOLD_START = 4.2; // Start of system view transition
+    const SYSTEM_VIEW_THRESHOLD_END = 5.8;   // End of system view transition
     
-    // Create a smooth transition zone around the system view threshold
-    const TRANSITION_RANGE = 0.8; // Width of transition zone
-    const transitionStart = SYSTEM_VIEW_THRESHOLD - TRANSITION_RANGE; 
-    const transitionEnd = SYSTEM_VIEW_THRESHOLD + TRANSITION_RANGE;
-    let transitionFactor = 0;
+    // Get base label distance ratio for different zoom ranges
+    let zoomRangeRatio;
     
-    if (cameraDistance <= transitionStart) {
-      // Fully in planetary view
-      transitionFactor = 0;
-    } else if (cameraDistance >= transitionEnd) {
-      // Fully in system view
-      transitionFactor = 1;
-    } else {
-      // In transition zone - apply smooth interpolation
-      transitionFactor = (cameraDistance - transitionStart) / (2 * TRANSITION_RANGE);
-      // Use smoothstep curve for more natural transition
-      transitionFactor = smoothstep(0, 1, transitionFactor);
-    }
-    
-    // Only adjust distance for nearby large objects (planets, stars, moons)
-    if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
-      // Exponential increase in distance as we get very close
-      // Use a more aggressive scaling for very close distances
-      if (cameraDistance < 0.1) {
-        // At extremely close distances (< 0.1), use an even more aggressive scaling
-        distanceRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
-      } else {
-        distanceRatio = Math.max(1.0, Math.pow(0.1 / Math.max(0.001, cameraDistance), 0.5));
-      }
+    if (cameraDistance <= CLOSE_ZOOM_THRESHOLD) {
+      // Very close range - most aggressive scaling
+      zoomRangeRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
+    } 
+    else if (cameraDistance <= MID_ZOOM_THRESHOLD) {
+      // Close to mid range - less aggressive scaling
+      const t = (cameraDistance - CLOSE_ZOOM_THRESHOLD) / (MID_ZOOM_THRESHOLD - CLOSE_ZOOM_THRESHOLD);
+      const closeRangeRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, CLOSE_ZOOM_THRESHOLD), 0.8));
       
-      // Apply user-controlled scale to close-up views as well
-      distanceRatio *= labelDistanceScale;
+      // For mid-zoom views, use a higher minimum ratio for better visuals
+      const midRangeTargetRatio = type === 'planet' ? 2.5 : (type === 'moon' ? 2.0 : 1.5);
+      
+      // Smooth interpolation between close and mid range
+      zoomRangeRatio = closeRangeRatio * (1 - t) + midRangeTargetRatio * t;
+    }
+    else if (cameraDistance <= FAR_MID_ZOOM_THRESHOLD) {
+      // Mid to far-mid range
+      const t = (cameraDistance - MID_ZOOM_THRESHOLD) / (FAR_MID_ZOOM_THRESHOLD - MID_ZOOM_THRESHOLD);
+      
+      // Start with different mid-range ratios based on entity type
+      const midRangeRatio = type === 'planet' ? 2.5 : (type === 'moon' ? 2.0 : 1.5);
+      
+      // Far-mid range should start transitioning toward system view values
+      // Higher values for planets and stars to keep labels clear
+      const farMidTargetRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      
+      // Smooth interpolation between mid and far-mid range
+      zoomRangeRatio = midRangeRatio * (1 - t) + farMidTargetRatio * t;
+    }
+    else if (cameraDistance <= SYSTEM_VIEW_THRESHOLD_START) {
+      // Far-mid to system view transition start
+      const t = (cameraDistance - FAR_MID_ZOOM_THRESHOLD) / (SYSTEM_VIEW_THRESHOLD_START - FAR_MID_ZOOM_THRESHOLD);
+      
+      // Start with different far-mid ratios based on entity type
+      const farMidRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      
+      // Target the initial system view ratio
+      const systemInitialRatio = 
+        SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
+        SYSTEM_VIEW_LABEL_SCALE.default;
+      
+      // Smooth interpolation to system view start
+      zoomRangeRatio = farMidRatio * (1 - t) + systemInitialRatio * t;
+    }
+    else if (cameraDistance <= SYSTEM_VIEW_THRESHOLD_END) {
+      // System view transition zone
+      const t = (cameraDistance - SYSTEM_VIEW_THRESHOLD_START) / (SYSTEM_VIEW_THRESHOLD_END - SYSTEM_VIEW_THRESHOLD_START);
+      // Apply smoothstep for more natural transition
+      const smoothT = smoothstep(0, 1, t);
+      
+      // Get the appropriate system-view scaling factor for this entity type
+      const systemScaleFactor = 
+        SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
+        SYSTEM_VIEW_LABEL_SCALE.default;
+        
+      // Calculate the far-mid ratio as the starting point
+      const farMidRatio = type === 'planet' ? 3.0 : (type === 'star' ? 2.5 : 1.8);
+      
+      // Interpolate between far-mid ratio and system scale factor using the smoothed factor
+      zoomRangeRatio = farMidRatio * (1 - smoothT) + systemScaleFactor * smoothT;
+    }
+    else {
+      // Fully in system view - use the system view label scale factor
+      zoomRangeRatio = 
+        SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
+        SYSTEM_VIEW_LABEL_SCALE.default;
     }
     
-    // Get the appropriate system-view scaling factor for this entity type
-    const systemScaleFactor = 
-      SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
-      SYSTEM_VIEW_LABEL_SCALE.default;
-    
-    // Apply smooth transition between planetary view and system view factors
-    const planetaryViewFactor = distanceRatio;
-    const systemViewFactor = systemScaleFactor * labelDistanceScale;
-    
-    // Blend between the two using the transition factor
-    distanceRatio = planetaryViewFactor * (1 - transitionFactor) + systemViewFactor * transitionFactor;
-    
-    if (isCurrentlySelected || (type === 'planet' || type === 'star')) {
-      console.log(`[LABEL-TRANSITION] ${name} (${type}): dist=${cameraDistance.toFixed(6)}, factor=${transitionFactor.toFixed(4)}, ratio=${distanceRatio.toFixed(4)}`);
-    }
+    // Apply user-controlled scale to the calculated ratio
+    distanceRatio = zoomRangeRatio * labelDistanceScale;
     
     // For detail view types, enhance label visibility when selected
     if (isInDetailView && isCurrentlySelected) {
       distanceRatio *= 1.5; // Increase label distance for selected objects in detail view
+    }
+    
+    if (isCurrentlySelected || (type === 'planet' || type === 'star')) {
+      console.log(`[LABEL-ZOOM] ${name} (${type}): camDist=${cameraDistance.toFixed(6)}, ratio=${distanceRatio.toFixed(4)}`);
     }
     
     // Calculate final adjusted label distance
