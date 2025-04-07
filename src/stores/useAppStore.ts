@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Vector3 } from '../utils/coordinateUtils';
+import { RouteAlert } from '../models/RouteAlert';
 
 // Define types for our celestial data
 export interface CelestialSystem {
@@ -98,6 +99,15 @@ export interface AppState {
   selectedRouteId: string | null;
   showOrbits: boolean;
   
+  // Authentication
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  
+  // UI panels
+  showAuthPanel: boolean;
+  showRouteAlertCreator: boolean;
+  showRouteAlertViewer: boolean;
+  
   // Camera state
   cameraPosition: Vector3;
   cameraTarget: Vector3;
@@ -106,6 +116,10 @@ export interface AppState {
   // Route planning
   routes: Route[];
   currentRoute: Route | null;
+  
+  // Route alerts
+  routeAlerts: RouteAlert[];
+  selectedRouteAlertId: string | null;
   
   // Time controls
   simulationTime: number;
@@ -121,6 +135,12 @@ export interface AppState {
   selectJumpPoint: (id: string | null) => void;
   selectRoute: (id: string | null) => void;
   
+  setAuthState: (isAuthenticated: boolean, isGuest: boolean) => void;
+  
+  setShowAuthPanel: (show: boolean) => void;
+  setShowRouteAlertCreator: (show: boolean) => void;
+  setShowRouteAlertViewer: (show: boolean) => void;
+  
   setCameraPosition: (position: Vector3) => void;
   setCameraTarget: (target: Vector3) => void;
   setCameraZoom: (zoom: number) => void;
@@ -129,6 +149,11 @@ export interface AppState {
   updateRoute: (route: Route) => void;
   deleteRoute: (id: string) => void;
   setCurrentRoute: (route: Route | null) => void;
+  
+  setRouteAlerts: (alerts: RouteAlert[]) => void;
+  addRouteAlert: (alert: RouteAlert) => void;
+  updateRouteAlert: (alert: RouteAlert) => void;
+  selectRouteAlert: (id: string | null) => void;
   
   setSimulationTime: (time: number) => void;
   setTimeMultiplier: (multiplier: number) => void;
@@ -149,12 +174,22 @@ const useAppStore = create<AppState>((set) => ({
   selectedRouteId: null,
   showOrbits: true,
   
+  isAuthenticated: false,
+  isGuest: false,
+  
+  showAuthPanel: false,
+  showRouteAlertCreator: false,
+  showRouteAlertViewer: false,
+  
   cameraPosition: { x: 0, y: 0, z: 100 },
   cameraTarget: { x: 0, y: 0, z: 0 },
   cameraZoom: 1,
   
   routes: [],
   currentRoute: null,
+  
+  routeAlerts: [],
+  selectedRouteAlertId: null,
   
   simulationTime: Date.now(),
   timeMultiplier: 1,
@@ -187,6 +222,26 @@ const useAppStore = create<AppState>((set) => ({
   
   selectRoute: (id) => set({ selectedRouteId: id }),
   
+  setAuthState: (isAuthenticated, isGuest) => set({ 
+    isAuthenticated,
+    isGuest
+  }),
+  
+  setShowAuthPanel: (show) => {
+    console.log('setShowAuthPanel called with:', show);
+    set({ showAuthPanel: show });
+  },
+  
+  setShowRouteAlertCreator: (show) => {
+    console.log('setShowRouteAlertCreator called with:', show);
+    set({ showRouteAlertCreator: show });
+  },
+  
+  setShowRouteAlertViewer: (show) => {
+    console.log('setShowRouteAlertViewer called with:', show);
+    set({ showRouteAlertViewer: show });
+  },
+  
   setCameraPosition: (position) => set({ cameraPosition: position }),
   setCameraTarget: (target) => set({ cameraTarget: target }),
   setCameraZoom: (zoom) => set({ cameraZoom: zoom }),
@@ -207,6 +262,18 @@ const useAppStore = create<AppState>((set) => ({
   })),
   
   setCurrentRoute: (route) => set({ currentRoute: route }),
+  
+  setRouteAlerts: (alerts) => set({ routeAlerts: alerts }),
+  
+  addRouteAlert: (alert) => set((state) => ({
+    routeAlerts: [...state.routeAlerts, alert]
+  })),
+  
+  updateRouteAlert: (alert) => set((state) => ({
+    routeAlerts: state.routeAlerts.map(a => a.id === alert.id ? alert : a)
+  })),
+  
+  selectRouteAlert: (id) => set({ selectedRouteAlertId: id }),
   
   setSimulationTime: (time) => set({ simulationTime: time }),
   setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),

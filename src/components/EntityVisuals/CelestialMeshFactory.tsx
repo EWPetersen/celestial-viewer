@@ -293,12 +293,17 @@ const CelestialMeshFactory: React.FC<CelestialMeshProps> = ({
     // Make highlight slightly larger than the object + atmosphere
     const highlightSize = size * scaleFactor * (normalizedType === 'planet' || normalizedType === 'moon' ? 1.1 : 1.2);
     
+    // Return null to remove the wireframe selection highlight completely
+    return null;
+    
+    /* Original code commented out:
     return (
       <mesh>
         <sphereGeometry args={[highlightSize, 32, 32]} />
         <meshBasicMaterial color="#ffffff" wireframe={true} transparent={true} opacity={0.5} />
       </mesh>
     );
+    */
   };
 
   // Jump Point Glow Effect

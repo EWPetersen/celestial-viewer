@@ -16,6 +16,7 @@
     "@types/react-dom": "^19.0.4",
     "@types/three": "^0.174.0",
     "@types/uuid": "^10.0.0",
+    "firebase": "^11.6.0",
     "maath": "^0.10.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -29,6 +30,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "dev": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
