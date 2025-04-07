@@ -217,8 +217,8 @@ const SceneContent: React.FC<SceneContentProps> = ({
   const { 
     celestialSystem, 
     selectedCelestialBodyId, 
-    selectedPointOfInterestId,
-    selectedJumpPointId
+    selectedPointOfInterestId, 
+    selectedJumpPointId 
   } = useAppStore();
   
   // Debug visibility issues
@@ -227,7 +227,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
   
   // Get camera distance from center to scale orbit paths appropriately
   const cameraDistance = camera.position.length();
-
+  
   // State to store nearest planet info
   const [manualZoomContext, setManualZoomContext] = useState<string | null>(null);
   
@@ -383,12 +383,8 @@ const SceneContent: React.FC<SceneContentProps> = ({
     // Use manual zoom context if we're zoomed in
     contextId = manualZoomContext;
     isSystemView = false;
-    
-    if (DEBUG_VISIBILITY) {
-      console.log(`[DEBUG-VISIBILITY] Using manual zoom context: ${manualZoomContext}`);
-    }
   }
-  
+
   // If no selection or selected item has no parent, context is the root (star)
   if (isSystemView || !contextId) {
     contextId = celestialSystem?.rootId || null;
@@ -453,6 +449,37 @@ const SceneContent: React.FC<SceneContentProps> = ({
               if (parentBody && parentBody.parentId && body.id === parentBody.parentId) return true;
             }
             
+            // When focusing on a jump point or lagrange point, always show the root star and planets
+            if ((selectedJumpPointId || 
+                (selectedPointOfInterestId && 
+                 celestialSystem.pointsOfInterest.find(p => p.id === selectedPointOfInterestId)?.type === 'lagrangepoint'))) {
+              // Show parent planet of the jump point/lagrange point
+              if (contextId && body.id === contextId) return true;
+              
+              // Show the star
+              if (body.id === celestialSystem.rootId) return true;
+              
+              // Show planets (direct children of star)
+              if (body.parentId === celestialSystem.rootId && body.type === 'planet') return true;
+              
+              // Show moons of the parent planet (if the parent is a planet)
+              if (contextId) {
+                const contextBody = celestialSystem.celestialBodies.find(b => b.id === contextId);
+                if (contextBody && contextBody.type === 'planet' && body.parentId === contextId) {
+                  return true;
+                }
+                
+                // If the jump point's context is a moon, also show its parent planet and sibling moons
+                if (contextBody && contextBody.type === 'moon' && contextBody.parentId) {
+                  // Show the parent planet
+                  if (body.id === contextBody.parentId) return true;
+                  
+                  // Show sibling moons
+                  if (body.parentId === contextBody.parentId && body.type === 'moon') return true;
+                }
+              }
+            }
+            
             // In detail view, only show siblings (other moons of the same parent) if moon is selected
             if (isDetailView && selectedCelestialBodyId) {
               const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
@@ -477,7 +504,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
               if (debugFilter && body.type === 'moon') {
                 console.log(`[DEBUG-VISIBILITY-MOON] ${body.name} (child of context ${contextId}) is visible`);
               }
-              return true;
+                return true;
             }
           }
           
@@ -507,14 +534,14 @@ const SceneContent: React.FC<SceneContentProps> = ({
           // Calculate orbit radius for planet/moon orbits
           const orbitRadius = relativePosition ? 
             Math.sqrt(relativePosition.x * relativePosition.x + 
-                    relativePosition.y * relativePosition.y + 
-                    relativePosition.z * relativePosition.z) : 0;
-          
+                      relativePosition.y * relativePosition.y + 
+                      relativePosition.z * relativePosition.z) : 0;
+            
           // Update the visibility tracker for debugging
           if (DEBUG_VISIBILITY) {
             lastObjectVisibility.current[body.id] = true;
           }
-              
+            
           return (
             <React.Fragment key={body.id || Math.random().toString()}>
               <Suspense fallback={<FallbackObject name={body.name} />}>
@@ -560,32 +587,113 @@ const SceneContent: React.FC<SceneContentProps> = ({
                     }
                     
                     // Base thickness values (will be divided by distanceFactor later)
+                    // Apply zoom-adaptive base thickness that reduces dramatically at the start of zooming in
                     let baseThickness;
+                    
+                    // Calculate a zoom scaling factor that reduces thickness early in zoom transitions
+                    const zoomScaleFactor = Math.min(1.0, Math.max(0.1, 
+                      Math.pow(cameraDistance / SYSTEM_VIEW_THRESHOLD, 2))); // Square the ratio for faster reduction
+                    
                     if (isSelected) {
-                      baseThickness = 0.005; // Selected orbit - significantly increased for better visibility
+                      baseThickness = 0.005 * zoomScaleFactor; // Selected orbit - reduce quickly when zooming in
                     } else if (isParentOrbit) {
-                      baseThickness = 0.004; // Parent orbit - increased for better visibility
+                      baseThickness = 0.004 * zoomScaleFactor; // Parent orbit - reduce quickly when zooming in
                     } else if (!isSystemView && body.type === 'planet') {
-                      baseThickness = 0.0005; // Planet orbits in focused view - kept thin
+                      baseThickness = 0.0005 * zoomScaleFactor; // Planet orbits in focused view - reduce quickly
                     } else if (!isSystemView && body.type === 'moon') {
-                      baseThickness = 0.004; // Moon orbits in focused view - increased significantly for better visibility
+                      baseThickness = 0.004 * zoomScaleFactor; // Moon orbits in focused view - reduce quickly
                     } else {
-                      baseThickness = 0.0045; // Default thickness - significantly increased for better visibility at system view
+                      baseThickness = 0.0045 * zoomScaleFactor; // Default thickness - reduce quickly when zooming in
                     }
                     
                     // Calculate final thickness with exponential scaling based on camera distance
                     // Use a different exponential factor for system view vs focus view
-                    let exponent = isSystemView ? 1.2 : 3.5; // Reduced exponent for system view to keep orbits thicker
+                    let isTransitioning = false;
                     
-                    // Special case for moons in focus view - use lower exponent for better visibility
-                    if (!isSystemView && body.type === 'moon') {
-                      exponent = 2.0; // Lower exponent for moons in focus view
+                    // SYSTEM_VIEW_THRESHOLD is defined as 5.0 in constants.ts
+                    // Define a MUCH wider transition zone around it for gradual exponent changes
+                    // This should capture the entire animation range from system view to detail view
+                    const SYSTEM_TRANSITION_START = 0.5;  // Start transition much earlier
+                    const SYSTEM_TRANSITION_END = 10.0;   // End transition much later
+                    
+                    // Use a blend of exponents during the transition
+                    let exponent;
+                    
+                    if (cameraDistance <= SYSTEM_TRANSITION_START) {
+                      // Focused view exponent - higher value makes orbits thinner faster when zooming in
+                      exponent = body.type === 'moon' ? 2.0 : 3.5;
+                    } else if (cameraDistance >= SYSTEM_TRANSITION_END) {
+                      // System view exponent - lower value keeps orbits thicker
+                      exponent = 1.2;
+                    } else {
+                      // Smoothly transition between exponents using a progressive formula
+                      isTransitioning = true;
+                      
+                      // Create a non-linear transition that changes more rapidly at the beginning
+                      // and more slowly toward the end for better visual results during animation
+                      const t = (cameraDistance - SYSTEM_TRANSITION_START) / 
+                                (SYSTEM_TRANSITION_END - SYSTEM_TRANSITION_START);
+                      
+                      // Use a front-loaded curve that transitions much more aggressively at the start
+                      // This makes orbits get thin very early in the zoom animation
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve - cube the t value to make early changes more dramatic
+                      
+                      const focusExponent = body.type === 'moon' ? 2.0 : 3.5;
+                      const systemExponent = 1.2;
+                      
+                      // Use weighted blend between focus and system exponents
+                      exponent = focusExponent * (1 - smoothT) + systemExponent * smoothT;
                     }
                     
                     // FIXED: Adjust distance factor based on actual camera distance to prevent
                     // orbits from being too large when zooming in manually
                     const adjustedDistance = Math.max(0.5, cameraDistance);
-                    const distanceFactor = Math.max(1, Math.pow(adjustedDistance, exponent) / 10); // Reduced division factor
+                    
+                    // Add smooth transitions between distance thresholds to prevent abrupt changes
+                    // during camera animations by using a weighted blend of the neighboring calculations
+                    let distanceFactor: number = Math.max(1, Math.pow(adjustedDistance, exponent) / 10); // Initialize with standard calculation
+                    
+                    // Define distance transition regions for smooth blending
+                    const transitionZones = [
+                      { min: 0.45, max: 0.55 },   // 0.5 transition zone
+                      { min: 0.9, max: 1.1 },     // 1.0 transition zone
+                      { min: 2.8, max: 3.2 },     // 3.0 transition zone
+                      { min: 7.8, max: 8.2 }      // 8.0 transition zone
+                    ];
+                    
+                    // Calculate standard distance factor
+                    const standardDistanceFactor = Math.max(1, Math.pow(adjustedDistance, exponent) / 10);
+                    
+                    // Add smoothing for transitions between distance zones
+                    let smoothingApplied = false;
+                    
+                    for (const zone of transitionZones) {
+                      if (adjustedDistance >= zone.min && adjustedDistance <= zone.max) {
+                        // We're in a transition zone - calculate both sides and blend
+                        const lowerDistance = zone.min * 0.9; // Just below zone
+                        const upperDistance = zone.max * 1.1; // Just above zone
+                        
+                        // Calculate factors for both sides of the transition
+                        const lowerFactor = Math.max(1, Math.pow(lowerDistance, exponent) / 10);
+                        const upperFactor = Math.max(1, Math.pow(upperDistance, exponent) / 10);
+                        
+                        // Calculate the blend weight (0-1)
+                        const weight = (adjustedDistance - zone.min) / (zone.max - zone.min);
+                        
+                        // Apply smoothstep function for more natural transitions
+                        const smoothWeight = weight * weight * (3 - 2 * weight); // Smoothstep
+                        
+                        // Blend the two factors
+                        distanceFactor = lowerFactor * (1 - smoothWeight) + upperFactor * smoothWeight;
+                        smoothingApplied = true;
+                        break;
+                      }
+                    }
+                    
+                    // If not in a transition zone, use the standard calculation
+                    if (!smoothingApplied) {
+                      distanceFactor = standardDistanceFactor;
+                    }
                     
                     // Calculate initial thickness
                     let thickness = baseThickness / distanceFactor;
@@ -593,12 +701,33 @@ const SceneContent: React.FC<SceneContentProps> = ({
                     // Scale thickness based on entity size to ensure orbits aren't larger than entities
                     const entityRadius = body.radius * SCENE_SCALE || 0.1;
                     
-                    // For system view, use a min thickness to ensure visibility
-                    let minThickness = isSystemView ? 0.0012 : 0.00001; // Increased minimum thickness for system view
+                    // --- Smooth minThickness transitions ---
+                    let systemViewMinThickness = 0.0012; // System view minimum thickness
+                    let focusViewMinThickness = 0.00001; // Focus view minimum thickness
                     
                     // Special case for moons - higher minimum thickness to ensure visibility
                     if (body.type === 'moon') {
-                      minThickness = isSystemView ? 0.0015 : 0.0008; // Higher min thickness for moons
+                      systemViewMinThickness = 0.0015; // Higher min thickness for moons in system view
+                      focusViewMinThickness = 0.0008; // Higher min thickness for moons in focus view
+                    }
+                    
+                    // Blend minThickness values during system view transitions
+                    let minThickness;
+                    
+                    if (cameraDistance <= SYSTEM_TRANSITION_START) {
+                      // Use focus view minimum thickness
+                      minThickness = focusViewMinThickness;
+                    } else if (cameraDistance >= SYSTEM_TRANSITION_END) {
+                      // Use system view minimum thickness
+                      minThickness = systemViewMinThickness;
+                    } else {
+                      // Smoothly interpolate using the same transition parameters as the exponent
+                      const t = (cameraDistance - SYSTEM_TRANSITION_START) / 
+                                (SYSTEM_TRANSITION_END - SYSTEM_TRANSITION_START);
+                      // Use front-loaded transition to get to focus view thickness quickly
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve - matches exponent transition
+                      
+                      minThickness = focusViewMinThickness * (1 - smoothT) + systemViewMinThickness * smoothT;
                     }
                     
                     // Check if we should hide this orbit because we're focused on a different object
@@ -610,35 +739,110 @@ const SceneContent: React.FC<SceneContentProps> = ({
                                           contextId !== celestialSystem.rootId;
                     
                     // For focused view, use entity radius to constrain max thickness
-                    let maxThicknessRatio = isSystemView ? 0.8 : 0.1; // Percentage of entity radius - increased for system view
+                    // Apply smoothed thickness ratio based on view state
+                    let maxThicknessRatio;
                     
-                    // Special case for moons - higher max thickness ratio
-                    if (body.type === 'moon') {
-                      maxThicknessRatio = isSystemView ? 1.0 : 0.5; // Higher ratio for moons
+                    // System view uses thicker orbits
+                    const systemViewRatio = body.type === 'moon' ? 1.0 : 0.8;
+                    
+                    // Focus view uses thinner orbits
+                    const focusViewRatio = body.type === 'moon' ? 0.5 : 0.1;
+                    
+                    // Apply the same transition logic used for exponents
+                    if (cameraDistance <= SYSTEM_TRANSITION_START) {
+                      // When in focus view, use the focus view ratio
+                      maxThicknessRatio = focusViewRatio;
+                    } else if (cameraDistance >= SYSTEM_TRANSITION_END) {
+                      // When in system view, use the system view ratio
+                      maxThicknessRatio = systemViewRatio;
+                    } else {
+                      // In the transition zone, smoothly interpolate with the same parameters
+                      const t = (cameraDistance - SYSTEM_TRANSITION_START) / 
+                                (SYSTEM_TRANSITION_END - SYSTEM_TRANSITION_START);
+                      // Use front-loaded transition to get to focus view ratio quickly
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve - matches other transitions
+                      
+                      // Blend between focus and system view ratios
+                      maxThicknessRatio = focusViewRatio * (1 - smoothT) + systemViewRatio * smoothT;
                     }
+                    
+                    // Use a much more aggressive distance-based constraint that transitions 
+                    // more quickly at the beginning of the zoom for better visual appearance
+                    const distanceBasedConstraint = body.type === 'moon' 
+                      ? 0.15 / (0.5 + Math.pow(Math.max(0.1, adjustedDistance), 0.25)) // Even more gradual for moons
+                      : 0.1 / (0.4 + Math.pow(Math.max(0.1, adjustedDistance), 0.3));  // More aggressive power curve for quick transitions
                     
                     // FIXED: Apply maximum thickness constraint based on camera distance to prevent
                     // orbits from being too large when zooming in manually
                     const maxThickness = Math.min(
                       Math.max(minThickness, entityRadius / (orbitRadius * SCENE_SCALE) * maxThicknessRatio),
-                      // Add a distance-based maximum constraint
-                      0.2 / Math.max(0.1, adjustedDistance)
+                      // Use the smoothed distance-based constraint
+                      distanceBasedConstraint
                     );
                     
-                    // Apply additional dynamic scaling for very close views
-                    if (cameraDistance < 0.5) {
-                      // Extremely close - make orbits very thin
-                      thickness *= 0.001;
-                    } else if (cameraDistance < 1) {
-                      // Very close - make orbits thin
-                      thickness *= 0.01;
-                    } else if (cameraDistance < 3) {
-                      // Close - reduce thickness
-                      thickness *= 0.1;
-                    } else if (cameraDistance > 8) {
+                    // Apply additional dynamic scaling for very close views with smooth transitions
+                    let dynamicScaleFactor = 1.0; // Default scaling factor (no change)
+                    
+                    // Define scaling factors for different distance ranges
+                    const veryCloseScaleFactor = 0.001;  // When distance < 0.5
+                    const closeScaleFactor = 0.01;       // When 0.5 <= distance < 1.0
+                    const midRangeScaleFactor = 0.1;     // When 1.0 <= distance < 3.0
+                    const farScaleFactor = (d: number) => Math.min(3, d / 6); // When distance >= 8.0
+                    
+                    // Define much wider transition zones for smoother animations that cover the entire zoom range
+                    const VERY_CLOSE_TRANSITION = { start: 0.3, end: 0.8 };    // Wider transition
+                    const CLOSE_TRANSITION = { start: 0.7, end: 1.3 };         // Wider transition
+                    const MID_TRANSITION = { start: 1.2, end: 3.5 };           // Wider transition
+                    const FAR_TRANSITION = { start: 3.0, end: 10.0 };          // Much wider transition
+                    
+                    // Apply smooth transitions between distance ranges with improved logic
+                    if (cameraDistance < VERY_CLOSE_TRANSITION.start) {
+                      // Very close range - thin orbits
+                      dynamicScaleFactor = veryCloseScaleFactor;
+                    } else if (cameraDistance < VERY_CLOSE_TRANSITION.end) {
+                      // Transition from very close to close with improved smoothing
+                      const t = (cameraDistance - VERY_CLOSE_TRANSITION.start) / 
+                                (VERY_CLOSE_TRANSITION.end - VERY_CLOSE_TRANSITION.start);
+                      // Use front-loaded transition for more aggressive early changes
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve consistent with other transitions
+                      dynamicScaleFactor = veryCloseScaleFactor * (1 - smoothT) + closeScaleFactor * smoothT;
+                    } else if (cameraDistance < CLOSE_TRANSITION.start) {
+                      // Close range
+                      dynamicScaleFactor = closeScaleFactor;
+                    } else if (cameraDistance < CLOSE_TRANSITION.end) {
+                      // Transition from close to mid range
+                      const t = (cameraDistance - CLOSE_TRANSITION.start) / 
+                                (CLOSE_TRANSITION.end - CLOSE_TRANSITION.start);
+                      // Use front-loaded transition for more aggressive early changes
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve consistent with other transitions
+                      dynamicScaleFactor = closeScaleFactor * (1 - smoothT) + midRangeScaleFactor * smoothT;
+                    } else if (cameraDistance < MID_TRANSITION.start) {
+                      // Mid range
+                      dynamicScaleFactor = midRangeScaleFactor;
+                    } else if (cameraDistance < MID_TRANSITION.end) {
+                      // Transition from mid range to standard (1.0)
+                      const t = (cameraDistance - MID_TRANSITION.start) / 
+                                (MID_TRANSITION.end - MID_TRANSITION.start);
+                      // Use front-loaded transition for more aggressive early changes
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve consistent with other transitions
+                      dynamicScaleFactor = midRangeScaleFactor * (1 - smoothT) + 1.0 * smoothT;
+                    } else if (cameraDistance < FAR_TRANSITION.start) {
+                      // Standard range - no scaling
+                      dynamicScaleFactor = 1.0;
+                    } else if (cameraDistance < FAR_TRANSITION.end) {
+                      // Transition from standard to far
+                      const t = (cameraDistance - FAR_TRANSITION.start) / 
+                                (FAR_TRANSITION.end - FAR_TRANSITION.start);
+                      // Use front-loaded transition for more aggressive early changes
+                      const smoothT = Math.pow(t, 3); // Front-loaded curve consistent with other transitions
+                      dynamicScaleFactor = 1.0 * (1 - smoothT) + farScaleFactor(cameraDistance) * smoothT;
+                    } else {
                       // Far away - increase thickness for system view
-                      thickness *= Math.min(3, cameraDistance / 6);
+                      dynamicScaleFactor = farScaleFactor(cameraDistance);
                     }
+                    
+                    // Apply the dynamic scaling factor
+                    thickness *= dynamicScaleFactor;
                     
                     // Skip rendering this orbit if it should be hidden
                     if (shouldHideOrbit) {
@@ -646,7 +850,22 @@ const SceneContent: React.FC<SceneContentProps> = ({
                     }
                     
                     // Apply the entity size constraint
-                    const finalThickness = Math.min(Math.max(thickness, minThickness), maxThickness);
+                    let finalThickness = Math.min(Math.max(thickness, minThickness), maxThickness);
+                    
+                    // Extra scaling to ensure thin lines as soon as zooming starts
+                    // This makes orbit lines get thin very early in the zoom when camera is moving
+                    if (cameraDistance < SYSTEM_VIEW_THRESHOLD && cameraDistance > SYSTEM_TRANSITION_START) {
+                      // Calculate how far into the zoom we are - 0 = just started zooming in, 1 = fully zoomed in
+                      const zoomProgress = 1.0 - ((cameraDistance - SYSTEM_TRANSITION_START) / 
+                                               (SYSTEM_VIEW_THRESHOLD - SYSTEM_TRANSITION_START));
+                      
+                      // Apply an extra aggressive reduction during early zoom
+                      // This ensures orbits are thin almost immediately when zooming in starts
+                      if (zoomProgress > 0.01 && zoomProgress < 0.5) {
+                        const earlyZoomScaleFactor = Math.pow(1.0 - zoomProgress, 4) + 0.1; // Very aggressive early reduction
+                        finalThickness *= earlyZoomScaleFactor;
+                      }
+                    }
                     
                     // Increase segments for smoother orbit paths
                     const segments = 128;
@@ -973,7 +1192,7 @@ const CameraStateReader: React.FC<{
     if (!currentTarget) {
         return;
     }
-    
+
     if (currentPos.distanceTo(lastPos.current) > threshold || 
         currentTarget.distanceTo(lastTarget.current) > threshold) {
       
