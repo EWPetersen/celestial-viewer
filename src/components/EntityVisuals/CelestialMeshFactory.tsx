@@ -234,7 +234,7 @@ const CelestialMeshFactory: React.FC<CelestialMeshProps> = ({
       <>
         {/* Single Corona Layer */}
         <mesh>
-          <sphereGeometry args={[baseSize * 3.0, 32, 32]} />
+          <sphereGeometry args={[baseSize * 1.5, 32, 32]} />
           <meshBasicMaterial 
             color={coronaColor}
             transparent={true} 

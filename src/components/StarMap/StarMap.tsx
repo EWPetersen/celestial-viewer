@@ -233,26 +233,44 @@ const SceneContent: React.FC<SceneContentProps> = ({
   // --- Determine the current visibility context --- 
   let contextId: string | null = null;
   let isSystemView = true; // Assume system view by default
+  let isDetailView = false; // New flag for detail view
 
   if (selectedCelestialBodyId) {
     contextId = selectedCelestialBodyId;
+    
+    // Check if the selected body is a moon, which means we're in detail view
+    const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+    if (selectedBody && selectedBody.type === 'moon') {
+      isDetailView = true;
+    }
+    
     isSystemView = false;
   } else if (selectedPointOfInterestId) {
     const selectedPOI = celestialSystem.pointsOfInterest.find(p => p.id === selectedPointOfInterestId);
-    // If POI has a parent, focus on the parent body's context
-    contextId = selectedPOI?.parentId || null; 
-    isSystemView = !contextId; // If POI has no parent, might still be system view
+    
+    // If the POI has a parent, we're in its context 
+    contextId = selectedPOI?.parentId || null;
+    
+    // All POI selections automatically trigger detail view
+    isDetailView = true;
+    isSystemView = false;
   } else if (selectedJumpPointId) {
     const selectedJP = celestialSystem.jumpPoints.find(j => j.id === selectedJumpPointId);
-    // If JP has a parent, focus on the parent body's context
-    contextId = selectedJP?.parentId || null; 
-    isSystemView = !contextId; // If JP has no parent, might still be system view
+    
+    // If JP has a parent, we're in its context
+    contextId = selectedJP?.parentId || null;
+    
+    // All jump point selections automatically trigger detail view
+    isDetailView = true;
+    isSystemView = false;
   }
 
   // If no selection or selected item has no parent, context is the root (star)
   if (isSystemView) {
     contextId = celestialSystem.rootId;
   }
+  
+  console.log(`[DEBUG] View context: systemView=${isSystemView}, detailView=${isDetailView}, contextId=${contextId}`);
   // -------------------------------------------
   
   return (
@@ -288,11 +306,35 @@ const SceneContent: React.FC<SceneContentProps> = ({
               if (parentBody && parentBody.parentId && body.id === parentBody.parentId) return true;
             }
             
-            // Show siblings (other moons of the same parent) if focusing on a moon
-            if (selectedBody && selectedBody.parentId && body.parentId === selectedBody.parentId) return true;
+            // In detail view, only show siblings (other moons of the same parent) if moon is selected
+            if (isDetailView && selectedCelestialBodyId) {
+              const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+              if (selectedBody && selectedBody.type === 'moon' && selectedBody.parentId && 
+                  body.parentId === selectedBody.parentId && body.type === 'moon') {
+                return true;
+              }
+            } else {
+              // In planet view, show siblings (other moons of the same parent)
+              if (selectedBody && selectedBody.parentId && body.parentId === selectedBody.parentId) return true;
+            }
             
-            // Show children of the focused body (moons)
-            if (body.parentId === contextId) return true;
+            // In detail view for a station/POI, only show the parent planet
+            if (isDetailView && (selectedPointOfInterestId || selectedJumpPointId)) {
+              // Already showing the parent planet via contextId check above
+              return false;
+            }
+            
+            // Show children of the focused body (moons) when not in detail view
+            if (!isDetailView && body.parentId === contextId) return true;
+            
+            // Show moons of the parent planet when in detail view focused on a moon
+            if (isDetailView && selectedCelestialBodyId) {
+              const selectedBody = celestialSystem.celestialBodies.find(b => b.id === selectedCelestialBodyId);
+              if (selectedBody && selectedBody.type === 'moon' && selectedBody.parentId && 
+                  body.parentId === selectedBody.parentId) {
+                return true;
+              }
+            }
           }
           
           // Hide other planets/moons
@@ -448,7 +490,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
                     
                     // Log orbit thickness if this is the selected body
                     if (isSelected) {
-                      console.log(`[DEBUG] Orbit thickness for ${body.name}: ${finalThickness.toFixed(10)}, cameraDistance: ${cameraDistance.toFixed(2)}, entityRadius: ${entityRadius.toFixed(6)}, maxThickness: ${maxThickness.toFixed(10)}`);
+                      console.log(`[DEBUG] Orbit thickness for ${body.name}: ${finalThickness.toFixed(16)}, cameraDistance: ${cameraDistance.toFixed(16)}, entityRadius: ${entityRadius.toFixed(16)}, maxThickness: ${maxThickness.toFixed(16)}`);
                     }
                     
                     // Increase segments for smoother orbit paths

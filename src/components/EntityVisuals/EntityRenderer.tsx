@@ -7,7 +7,14 @@ import CelestialMeshFactory from './CelestialMeshFactory';
 import EntityLabel from './EntityLabel';
 import OrbitPath from './OrbitPath';
 import useAppStore from '../../stores/useAppStore';
-import { SCENE_SCALE, MIN_VISUAL_SIZE, getBaseIconSizeByType } from '../../config/constants'; // Import shared constants
+import { 
+  SCENE_SCALE, 
+  MIN_VISUAL_SIZE, 
+  getBaseIconSizeByType,
+  DETAIL_VIEW_THRESHOLD,
+  getDetailViewSizeMultiplier,
+  isDetailViewEntityType
+} from '../../config/constants'; // Import shared constants
 
 // --- Constants for Dynamic Scaling ---
 const FAR_THRESHOLD = 5.0;  // Distance beyond which objects use FAR_SCALE
@@ -15,32 +22,56 @@ const CLOSE_THRESHOLD = 0.001; //Distance within which objects use CLOSE_SCALE
 
 // Type-specific scale factors for default system view
 const TYPE_SCALE_FACTORS = {
-  star: 10,           // Larger star in system view
+  star: 10,             // Larger star in system view
   planet: 30.0,         // Much larger planets in system view
-  moon: 1.5,           // Larger moons for better visibility
-  station: 1.0,        // Increased station visibility
-  reststop: 1.0,       // Increased reststop visibility
-  landingzone: 1.0,    // Increased landing zone visibility
-  commarray: 1.0,      // Increased comm array visibility
-  outpost: 1.0,        // Increased outpost visibility
-  jumppoint: 8.0,      // Increased jump point visibility
+  moon: 1.5,            // Larger moons for better visibility
+  station: 1.0,         // Increased station visibility
+  reststop: 1.0,        // Increased reststop visibility
+  landingzone: 1.0,     // Increased landing zone visibility
+  commarray: 1.0,       // Increased comm array visibility
+  outpost: 1.0,         // Increased outpost visibility
+  jumppoint: 8.0,       // Increased jump point visibility
   lagrangepoint: 6.0,   // Significantly increased for always-visible lagrange points
-  unknown: 1.0         // Increased default for unknown types
+  unknown: 1.0          // Increased default for unknown types
+};
+
+// Detail view scale factors (used when zoomed in close on a moon or station)
+const DETAIL_VIEW_SCALE_FACTORS = {
+  moon: 2.5,            // Enhance moon visibility in detail view
+  station: 2.0,         // Enhance station visibility in detail view
+  reststop: 2.0,        // Enhance reststop visibility in detail view
+  landingzone: 2.0,     // Enhance landing zone visibility in detail view
+  commarray: 2.0,       // Enhance comm array visibility in detail view
+  outpost: 2.0,         // Enhance outpost visibility in detail view
+  jumppoint: 2.0,       // Enhance jump point visibility in detail view
+  unknown: 1.5          // Default enhancement for detail view
 };
 
 // Type-specific label distances (how far labels are placed from entity center)
 const LABEL_DISTANCES = {
-  star: 0.008,         // Further from the surface for stars
-  planet: 0.003,  // Further for planets
-  moon: 0.002,        // Default for moons
-  station: 0.01,    // Closer for stations
-  reststop: 0.0050,    // Closer for reststops
-  landingzone: 0.001, // Closer for landing zones
-  commarray: 0.01,   // Closer for comm arrays
-  outpost: 0.001,     // Closer for outposts
-  jumppoint: 0.09,   // Default for jump points
-  lagrangepoint: 0.1,// Default for lagrange points
-  unknown: 0.55      // Default for unknown types
+  star: 0.008,          // Further from the surface for stars
+  planet: 0.003,        // Further for planets
+  moon: 0.002,          // Default for moons
+  station: 0.01,        // Closer for stations
+  reststop: 0.0050,     // Closer for reststops
+  landingzone: 0.001,   // Closer for landing zones
+  commarray: 0.01,      // Closer for comm arrays
+  outpost: 0.001,       // Closer for outposts
+  jumppoint: 0.09,      // Default for jump points
+  lagrangepoint: 0.1,   // Default for lagrange points
+  unknown: 0.55         // Default for unknown types
+};
+
+// Detail view label distances (override when in detail view)
+const DETAIL_VIEW_LABEL_DISTANCES = {
+  moon: 0.004,          // Adjusted for detail view of moons
+  station: 0.015,       // Adjusted for detail view of stations
+  reststop: 0.01,       // Adjusted for detail view of reststops
+  landingzone: 0.002,   // Adjusted for detail view of landing zones
+  commarray: 0.015,     // Adjusted for detail view of comm arrays
+  outpost: 0.002,       // Adjusted for detail view of outposts
+  jumppoint: 0.12,      // Adjusted for detail view of jump points
+  unknown: 0.6          // Default for detail view
 };
 
 // Get object radius multiplier for different entity types
@@ -71,6 +102,19 @@ const LABEL_SCALE_FACTORS = {
   lagrangepoint: 1.5,  // Increased from 0.9 for better visibility
   outpost: 0.9,        // Slightly smaller
   unknown: 1.0         // Default sizing
+};
+
+// Detail view label scale factors
+const DETAIL_VIEW_LABEL_SCALE_FACTORS = {
+  moon: 1.3,           // Larger labels for moons in detail view
+  station: 1.2,        // Larger labels for stations in detail view
+  reststop: 1.2,       // Larger labels for reststops in detail view
+  landingzone: 1.2,    // Larger labels for landing zones in detail view
+  commarray: 1.2,      // Larger labels for comm arrays in detail view
+  outpost: 1.2,        // Larger labels for outposts in detail view
+  jumppoint: 1.3,      // Larger labels for jump points in detail view
+  lagrangepoint: 1.7,  // Larger labels for lagrange points in detail view
+  unknown: 1.2         // Default for unknown types in detail view
 };
 
 // Updated dynamic scale multipliers
@@ -116,6 +160,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   const textRef = useRef<any>(null);
   const { camera } = useThree();
   const [currentVisualScale, setCurrentVisualScale] = useState(1.0); // State to hold the dynamic scale
+  const [isInDetailView, setIsInDetailView] = useState(false); // Track if we're in detail view
   
   // State for tracking scale changes - only log when these change significantly
   const [lastLoggedScale, setLastLoggedScale] = useState<number>(1.0);
@@ -244,10 +289,45 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     z: safePosition.z * SCENE_SCALE
   }), [safePosition]);
   
+  // Debug moon positions during render
+  useEffect(() => {
+    if (type === 'moon') {
+      console.log(`[MOON-DEBUG-RENDER] Moon "${name}" (ID: ${id}) position:`);
+      console.log(`[MOON-DEBUG-RENDER] - Original: [${safePosition.x.toFixed(16)}, ${safePosition.y.toFixed(16)}, ${safePosition.z.toFixed(16)}]`);
+      console.log(`[MOON-DEBUG-RENDER] - Scaled for scene: [${scenePosition.x.toFixed(16)}, ${scenePosition.y.toFixed(16)}, ${scenePosition.z.toFixed(16)}]`);
+      
+      if (relativePosition) {
+        console.log(`[MOON-DEBUG-RENDER] - Relative to parent: [${relativePosition.x.toFixed(16)}, ${relativePosition.y.toFixed(16)}, ${relativePosition.z.toFixed(16)}]`);
+      }
+      
+      if (isCurrentlySelected) {
+        console.log(`[MOON-DEBUG-RENDER] - SELECTED: This moon is currently selected!`);
+      }
+    }
+  }, [type, name, id, safePosition, scenePosition, relativePosition, isCurrentlySelected]);
+
   // Dynamic Scaling Logic within useFrame
   useFrame(() => {
     if (!groupRef.current) return;
     const distance = camera.position.distanceTo(groupRef.current.position);
+
+    // Special debug for moons - log camera distance
+    if (type === 'moon' && isCurrentlySelected) {
+      console.log(`[MOON-DEBUG-CAMERA] Camera distance to selected moon "${name}": ${distance.toFixed(16)}`);
+      console.log(`[MOON-DEBUG-CAMERA] Camera position: [${camera.position.toArray().map((v: number) => v.toFixed(16)).join(', ')}]`);
+      console.log(`[MOON-DEBUG-CAMERA] Moon position: [${scenePosition.x.toFixed(16)}, ${scenePosition.y.toFixed(16)}, ${scenePosition.z.toFixed(16)}]`);
+    }
+
+    // Detect if we're in detail view based on camera distance and entity type
+    const isDetailViewCandidateType = isDetailViewEntityType(type as string);
+    const newDetailViewState = isDetailViewCandidateType && (distance < DETAIL_VIEW_THRESHOLD || isCurrentlySelected);
+    
+    if (newDetailViewState !== isInDetailView) {
+      setIsInDetailView(newDetailViewState);
+      if (isCurrentlySelected && type !== 'star' && type !== 'planet') {
+        console.log(`[EntityRenderer] ${name} detail view state changed to: ${newDetailViewState}, distance=${distance.toFixed(12)}`);
+      }
+    }
 
     // --- Select parameters based on type --- 
     let closeMultiplier = CLOSE_SCALE_MULTIPLIER;
@@ -255,8 +335,10 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     let closeThreshold = CLOSE_THRESHOLD;
     
     // Get type-specific scale factor from the lookup table
-    const typeScaleFactor = TYPE_SCALE_FACTORS[type as keyof typeof TYPE_SCALE_FACTORS] || 
-      TYPE_SCALE_FACTORS.unknown;
+    // Use detail view scale factors if in detail view
+    const typeScaleFactor = isInDetailView && isDetailViewCandidateType
+      ? getDetailViewSizeMultiplier(type as string)
+      : (TYPE_SCALE_FACTORS[type as keyof typeof TYPE_SCALE_FACTORS] || TYPE_SCALE_FACTORS.unknown);
 
     switch (type) {
       case 'star':
@@ -302,7 +384,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       const distanceChanged = Math.abs(distance - lastLoggedDistance) > 0.01;
       
       if (scaleChanged || distanceChanged) {
-        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(4)}, meshScale=${finalScale.toFixed(4)}`);
+        console.log(`[Scale Update] ${name}: distance=${distance.toFixed(12)}, meshScale=${finalScale.toFixed(12)}, detailView=${isInDetailView}, camPos=[${camera.position.toArray().map((v: number) => v.toFixed(12)).join(', ')}]`);
         
         // Update last logged values
         setLastLoggedScale(finalScale);
@@ -323,7 +405,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // Calculate orbit radius using relative position
     const { x, y, z } = relativePosition;
     const radius = Math.sqrt(x*x + y*y + z*z) * SCENE_SCALE;
-    console.log(`[DEBUG] Orbit for ${name}: relativePosition=(${x}, ${y}, ${z}), radius=${radius}`);
+    console.log(`[DEBUG] Orbit for ${name}: relativePosition=(${x.toFixed(12)}, ${y.toFixed(12)}, ${z.toFixed(12)}), radius=${radius.toFixed(12)}`);
     return radius;
   }, [relativePosition, name]);
   
@@ -365,7 +447,7 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   // Debug log for parent position if available
   useEffect(() => {
     if (parentPosition) {
-      console.log(`[DEBUG] Parent position for ${name}: (${parentPosition.x}, ${parentPosition.y}, ${parentPosition.z})`);
+      console.log(`[DEBUG] Parent position for ${name}: (${parentPosition.x.toFixed(12)}, ${parentPosition.y.toFixed(12)}, ${parentPosition.z.toFixed(12)})`);
     }
   }, [parentPosition, name]);
 
@@ -396,14 +478,20 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     const baseVisualSizeForLabel = Math.max(MIN_VISUAL_SIZE, getBaseIconSizeByType(type || 'unknown'));
     
     // Get the distance for label based on entity type
-    const baseLabelDistance = LABEL_DISTANCES[type as keyof typeof LABEL_DISTANCES] || LABEL_DISTANCES.unknown;
+    // Use detail view label distances if in detail view
+    const baseLabelDistance = isInDetailView
+      ? (DETAIL_VIEW_LABEL_DISTANCES[type as keyof typeof DETAIL_VIEW_LABEL_DISTANCES] || DETAIL_VIEW_LABEL_DISTANCES.unknown)
+      : (LABEL_DISTANCES[type as keyof typeof LABEL_DISTANCES] || LABEL_DISTANCES.unknown);
     
     // Get the radius multiplier for this entity type
     const radiusMultiplier = ENTITY_RADIUS_MULTIPLIERS[type as keyof typeof ENTITY_RADIUS_MULTIPLIERS] || 
       ENTITY_RADIUS_MULTIPLIERS.unknown;
     
     // Get the label scale factor based on entity type
-    const labelScaleFactor = LABEL_SCALE_FACTORS[type as keyof typeof LABEL_SCALE_FACTORS] || LABEL_SCALE_FACTORS.unknown;
+    // Use detail view label scale factors if in detail view
+    const labelScaleFactor = isInDetailView
+      ? (DETAIL_VIEW_LABEL_SCALE_FACTORS[type as keyof typeof DETAIL_VIEW_LABEL_SCALE_FACTORS] || DETAIL_VIEW_LABEL_SCALE_FACTORS.unknown)
+      : (LABEL_SCALE_FACTORS[type as keyof typeof LABEL_SCALE_FACTORS] || LABEL_SCALE_FACTORS.unknown);
     
     // Calculate final label scale based on visual scale and type-specific factor
     const finalLabelScale = currentVisualScale * labelScaleFactor;
@@ -430,23 +518,30 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
       }
     }
     
+    // For detail view types, enhance label visibility when selected
+    if (isInDetailView && isCurrentlySelected) {
+      distanceRatio *= 1.5; // Increase label distance for selected objects in detail view
+    }
+    
     // Calculate final adjusted label distance
     const adjustedLabelDistance = baseLabelDistance * distanceRatio;
     
     // Build debug info string - only include necessary info
-    const debugInfo = `distanceRatio=${distanceRatio.toFixed(2)}`;
+    const debugInfo = `distanceRatio=${distanceRatio.toFixed(6)}, detailView=${isInDetailView}, camDist=${cameraDistance.toFixed(12)}`;
 
     // --- Debug Logging for Planets/Moons ---
-    if (type === 'planet' || type === 'moon') {
+    if ((type === 'planet' || type === 'moon') && isCurrentlySelected) {
         console.log(`[EntityRenderer Debug - ${name}] 
           Type: ${type}, 
-          BaseLabelDist: ${baseLabelDistance.toFixed(4)}, 
-          CamDist: ${cameraDistance.toFixed(4)}, 
-          DistRatio: ${distanceRatio.toFixed(4)}, 
-          AdjLabelDist: ${adjustedLabelDistance.toFixed(4)}, 
-          ParentScale(finalScale): ${currentVisualScale.toFixed(4)}, 
-          LabelScaleFactor: ${labelScaleFactor.toFixed(4)}, 
-          FinalLabelScale: ${finalLabelScale.toFixed(4)}`);
+          BaseLabelDist: ${baseLabelDistance.toFixed(12)}, 
+          CamDist: ${cameraDistance.toFixed(12)}, 
+          DistRatio: ${distanceRatio.toFixed(12)}, 
+          AdjLabelDist: ${adjustedLabelDistance.toFixed(12)}, 
+          ParentScale(finalScale): ${currentVisualScale.toFixed(12)}, 
+          LabelScaleFactor: ${labelScaleFactor.toFixed(12)}, 
+          FinalLabelScale: ${finalLabelScale.toFixed(12)},
+          DetailView: ${isInDetailView},
+          CamPos: [${camera.position.x.toFixed(12)}, ${camera.position.y.toFixed(12)}, ${camera.position.z.toFixed(12)}]`);
     }
     // --- End Debug Logging ---
 

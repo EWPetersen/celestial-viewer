@@ -1,0 +1,56 @@
+[33mcommit 279fe00e94012765668de499400da4268f06b4a4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: User <user@example.com>
+Date:   Thu Mar 27 10:09:29 2025 -0400
+
+    Initial commit: Set up Viber3D-based celestial visualization application with core functionality
+
+A	.env
+M	README.md
+M	package-lock.json
+M	package.json
+A	public/data/stanton_extract.json
+M	src/App.css
+M	src/App.tsx
+A	src/components/CameraController/CameraController.tsx
+A	src/components/CameraController/index.ts
+A	src/components/StarMap/StarMap.tsx
+A	src/components/StarMap/index.ts
+A	src/services/AuthService/AuthService.ts
+A	src/services/AuthService/index.ts
+A	src/services/DataLoaderService/DataLoader.ts
+A	src/services/DataLoaderService/index.ts
+A	src/services/InterdictionService/InterdictionService.ts
+A	src/services/InterdictionService/index.ts
+A	src/services/RouteCalculationService/RouteCalculationService.ts
+A	src/services/RouteCalculationService/index.ts
+A	src/stores/useAppStore.ts
+A	src/utils/coordinateUtils.ts
+A	src/utils/distanceUtils.ts
+A	src/utils/validationUtils.ts
+
+[33mcommit a3d2e81b9f8626102a23d4c14b61f8820335176c[m
+Author: User <user@example.com>
+Date:   Thu Mar 27 09:45:27 2025 -0400
+
+    Initialize project using Create React App
+
+A	.gitignore
+A	README.md
+A	package-lock.json
+A	package.json
+A	public/favicon.ico
+A	public/index.html
+A	public/logo192.png
+A	public/logo512.png
+A	public/manifest.json
+A	public/robots.txt
+A	src/App.css
+A	src/App.test.tsx
+A	src/App.tsx
+A	src/index.css
+A	src/index.tsx
+A	src/logo.svg
+A	src/react-app-env.d.ts
+A	src/reportWebVitals.ts
+A	src/setupTests.ts
+A	tsconfig.json
