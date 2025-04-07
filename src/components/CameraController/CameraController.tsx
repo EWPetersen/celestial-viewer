@@ -132,6 +132,16 @@ const CameraController: React.FC<CameraControllerProps> = ({
         camera.position.set(coords.camX, coords.camY, coords.camZ);
         controls.target.set(coords.lookX, coords.lookY, coords.lookZ);
         controls.update(); // Important: Update controls during tween
+        
+        // Keep track of animation progress for debugging
+        // We'll use values range for calculating approximate progress
+        const startDist = startCamPos.distanceTo(startLookAt);
+        const targetDist = targetPos.distanceTo(targetLookAt);
+        const currentDist = camera.position.distanceTo(controls.target);
+        
+        // Calculate approximate progress based on distance
+        const distanceProgress = Math.abs((currentDist - startDist) / (targetDist - startDist));
+        const progress = isNaN(distanceProgress) ? 0 : Math.min(1, Math.max(0, distanceProgress));
       })
       .onComplete(() => {
         isAnimatingRef.current = false; // Reset animating flag
@@ -335,14 +345,13 @@ const CameraController: React.FC<CameraControllerProps> = ({
   // --- Animation Loop (for TWEEN) ---
   useFrame((state, delta) => {
     TWEEN.update(); // Update TWEEN animations
-    const controls = controlsRef.current;
-    if (!controls) return;
     
     // Update store only if not animating and camera has moved manually
     if (!isAnimatingRef.current) {
+      const controls = controlsRef.current;
+      if (!controls) return;
+      
       // Basic check if camera/target moved slightly
-      // You might need more robust checks depending on interaction types
-      // Update store with current camera state
       const currentPos = camera.position;
       const currentTarget = controls.target;
       
