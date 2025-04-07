@@ -12,11 +12,22 @@ export const MIN_VISUAL_SIZE = 0.1;     // Smallest visual size for any object
 // --- Camera View Constants ---
 export const SYSTEM_VIEW_DISTANCE = 6;  // Default system view camera distance
 export const DETAIL_VIEW_THRESHOLD = 0.1; // Camera distance below this value triggers detail view mode
+export const SYSTEM_VIEW_THRESHOLD = 5.0; // Camera distance above this value is considered system view
 
 // --- Focus View Diameter Constants ---
 export const TARGET_FOCUS_DIAMETER_KM = 450000; // Target view diameter in km for planet views
 export const MOON_TARGET_FOCUS_DIAMETER_KM = 5000; // Target view diameter in km for moon detail views (reduced from 50000)
 export const STATION_TARGET_FOCUS_DIAMETER_KM = 2000; // Target view diameter in km for station detail views (reduced from 20000)
+
+// --- Label Distance Constants ---
+export const SYSTEM_VIEW_LABEL_SCALE = {
+  star: 4,          // How much further labels appear from stars in system view
+  planet: 4.0,        // How much further labels appear from planets in system view
+  moon: 1.5,          // How much further labels appear from moons in system view
+  jumppoint: 1.5,     // How much further labels appear from jump points in system view
+  station: 1.2,       // How much further labels appear from stations in system view
+  default: 1.0        // Default multiplier for other objects
+};
 
 // Base visual sizes for different entity types
 export const getBaseIconSizeByType = (type: string): number => {

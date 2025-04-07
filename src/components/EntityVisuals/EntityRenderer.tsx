@@ -12,8 +12,10 @@ import {
   MIN_VISUAL_SIZE, 
   getBaseIconSizeByType,
   DETAIL_VIEW_THRESHOLD,
+  SYSTEM_VIEW_THRESHOLD,
   getDetailViewSizeMultiplier,
-  isDetailViewEntityType
+  isDetailViewEntityType,
+  SYSTEM_VIEW_LABEL_SCALE
 } from '../../config/constants'; // Import shared constants
 
 // --- Constants for Dynamic Scaling ---
@@ -99,7 +101,7 @@ const LABEL_SCALE_FACTORS = {
   landingzone: 0.85,   // Smaller
   commarray: 0.85,     // Smaller
   jumppoint: 1.0,      // Normal sizing
-  lagrangepoint: 1.5,  // Increased from 0.9 for better visibility
+  lagrangepoint: 3,  // Increased from 0.9 for better visibility
   outpost: 0.9,        // Slightly smaller
   unknown: 1.0         // Default sizing
 };
@@ -113,7 +115,7 @@ const DETAIL_VIEW_LABEL_SCALE_FACTORS = {
   commarray: 1.2,      // Larger labels for comm arrays in detail view
   outpost: 1.2,        // Larger labels for outposts in detail view
   jumppoint: 1.3,      // Larger labels for jump points in detail view
-  lagrangepoint: 1.7,  // Larger labels for lagrange points in detail view
+  lagrangepoint: 3,  // Larger labels for lagrange points in detail view
   unknown: 1.2         // Default for unknown types in detail view
 };
 
@@ -143,7 +145,8 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
   showLabel = true,
   showOrbits = false,
   parentPosition = null,
-  relativePosition = null
+  relativePosition = null,
+  labelDistanceScale = 1.0 // Default value if not provided
 }) => {
   
   const { 
@@ -506,6 +509,9 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
     // This makes labels move further away when very close to avoid occlusion
     let distanceRatio = 0.5;
     
+    // Determine if we're in system view based on camera distance
+    const isSystemView = cameraDistance > SYSTEM_VIEW_THRESHOLD;
+    
     // Only adjust distance for nearby large objects (planets, stars, moons)
     if ((type === 'planet' || type === 'star' || type === 'moon') && cameraDistance < 1.0) {
       // Exponential increase in distance as we get very close
@@ -515,6 +521,24 @@ const EntityRenderer: React.FC<EntityRendererProps> = ({
         distanceRatio = Math.max(5.0, Math.pow(0.05 / Math.max(0.001, cameraDistance), 0.8));
       } else {
         distanceRatio = Math.max(1.0, Math.pow(0.1 / Math.max(0.001, cameraDistance), 0.5));
+      }
+      
+      // Apply user-controlled scale to close-up views as well
+      distanceRatio *= labelDistanceScale;
+    }
+    
+    // Apply system-level view label distance scaling
+    if (isSystemView) {
+      // Get the appropriate scaling factor for this entity type
+      const systemScaleFactor = 
+        SYSTEM_VIEW_LABEL_SCALE[type as keyof typeof SYSTEM_VIEW_LABEL_SCALE] || 
+        SYSTEM_VIEW_LABEL_SCALE.default;
+      
+      // Apply the system view scaling factor to the distance ratio, adjusted by user-controlled scale
+      distanceRatio = Math.max(distanceRatio, systemScaleFactor * labelDistanceScale);
+      
+      if (isCurrentlySelected || (type === 'planet' || type === 'star')) {
+        console.log(`[LABEL-DEBUG] System view label for ${name} (${type}): distanceRatio=${distanceRatio.toFixed(6)}, scaleFactor=${systemScaleFactor.toFixed(2)}, userScale=${labelDistanceScale.toFixed(2)}`);
       }
     }
     

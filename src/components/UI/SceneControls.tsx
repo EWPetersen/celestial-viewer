@@ -6,14 +6,15 @@ import * as THREE from 'three'; // Import THREE for Vector3 type
 // Define the props for SceneControls
 interface SceneControlsProps {
   onFilterChange: (hiddenTypes: Set<EntityType>) => void;
-  onFocusEntity: (entityId: string) => void;
   onResetView: () => void;
+  onFocusEntity: (entityId: string) => void;
   onToggleLabels: () => void;
   onToggleOrbits: () => void;
+  onLabelDistanceChange: (scale: number) => void;
   labelsVisible: boolean;
   orbitsVisible: boolean;
-  cameraPosition?: THREE.Vector3; // Make optional or provide default
-  cameraTarget?: THREE.Vector3;   // Make optional or provide default
+  cameraPosition: THREE.Vector3;
+  cameraTarget: THREE.Vector3;
 }
 
 // TODO: Implement camera focus logic in StarMap component
@@ -25,6 +26,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   onResetView,    // Destructure new props
   onToggleLabels, // Destructure label toggle prop
   onToggleOrbits, // Destructure orbit toggle prop
+  onLabelDistanceChange, // Destructure label distance change prop
   labelsVisible,  // Destructure label visibility state
   orbitsVisible,  // Destructure orbit visibility state
   cameraPosition, // Destructure camera props
@@ -34,6 +36,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false); // Add collapsed state
+  const [labelDistance, setLabelDistance] = useState(1.0); // Local state for label distance
 
   // Log received camera props
   useEffect(() => {
@@ -103,6 +106,13 @@ const SceneControls: React.FC<SceneControlsProps> = ({
 
   const handleToggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
+  };
+
+  // Handler for label distance slider
+  const handleLabelDistanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setLabelDistance(value);
+    onLabelDistanceChange(value);
   };
 
   // --- Styles --- (Inline for simplicity, consider CSS modules or styled-components)
@@ -325,6 +335,48 @@ const SceneControls: React.FC<SceneControlsProps> = ({
                   </span>
               </div>
           </div>
+
+          {/* Toggles Section */}
+          <h4 style={{color: '#ffffff', margin: '5px 0'}}>Display Options</h4>
+          <div style={{marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '5px'}}>
+            <label style={{color: '#ffffff', display: 'flex', alignItems: 'center'}}>
+              <input 
+                type="checkbox" 
+                checked={labelsVisible} 
+                onChange={onToggleLabels}
+                style={{marginRight: '5px'}}
+              />
+              Show Labels
+            </label>
+            <label style={{color: '#ffffff', display: 'flex', alignItems: 'center'}}>
+              <input 
+                type="checkbox" 
+                checked={orbitsVisible} 
+                onChange={onToggleOrbits}
+                style={{marginRight: '5px'}}
+              />
+              Show Orbits
+            </label>
+          </div>
+          
+          {/* Label Distance Control */}
+          <div style={{marginBottom: '10px'}}>
+            <label style={{color: '#ffffff', display: 'flex', flexDirection: 'column', gap: '5px'}}>
+              Label Distance: {labelDistance.toFixed(1)}x
+              <input 
+                type="range" 
+                min="0.5" 
+                max="5.0" 
+                step="0.1" 
+                value={labelDistance} 
+                onChange={handleLabelDistanceChange}
+                style={{width: '100%'}}
+              />
+            </label>
+          </div>
+          
+          {/* Entity Selector */}
+          <h4 style={{color: '#ffffff', margin: '5px 0'}}>Focus on Entity</h4>
         </>
       )}
       

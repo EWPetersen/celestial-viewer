@@ -86,8 +86,8 @@ const EntityLabel: React.FC<EntityLabelProps> = ({
     else if (type === 'planet') typeSizeFactor = 1.0;
     else if (type === 'moon') typeSizeFactor = 1.0;
     else if (type === 'station') typeSizeFactor = 0.9;
-    else if (type === 'jumppoint') typeSizeFactor = 1.1;
-    else if (type === 'lagrangepoint') typeSizeFactor = 1.8; // Increased for better visibility
+    else if (type === 'jumppoint') typeSizeFactor = 4;
+    else if (type === 'lagrangepoint') typeSizeFactor = 5; // Increased for better visibility
     
     // Calculate constant screen-space size (similar to how Stanton label works)
     // This maintains visual size regardless of camera distance

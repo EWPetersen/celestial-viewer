@@ -93,7 +93,8 @@ const JumpPoint: React.FC<{
   showOrbits: boolean;
   parentPosition: Vector3 | null;
   relativePosition: Vector3 | null;
-}> = ({ id, name, position, destinationSystem, showOrbits, parentPosition, relativePosition }) => {
+  labelDistanceScale: number;
+}> = ({ id, name, position, destinationSystem, showOrbits, parentPosition, relativePosition, labelDistanceScale }) => {
   const { selectedJumpPointId, selectJumpPoint } = useAppStore();
   const isSelected = selectedJumpPointId === id;
   
@@ -142,7 +143,8 @@ const PointOfInterest: React.FC<{
   showOrbits: boolean;
   parentPosition: Vector3 | null;
   relativePosition: Vector3 | null;
-}> = ({ id, name, position, type, showOrbits, parentPosition, relativePosition }) => {
+  labelDistanceScale: number;
+}> = ({ id, name, position, type, showOrbits, parentPosition, relativePosition, labelDistanceScale }) => {
   const { selectedPointOfInterestId, selectPointOfInterest } = useAppStore();
   const isSelected = selectedPointOfInterestId === id;
   
@@ -186,6 +188,7 @@ const PointOfInterest: React.FC<{
         showOrbits={showOrbits}
         parentPosition={parentPosition}
         relativePosition={relativePosition}
+        labelDistanceScale={labelDistanceScale}
       />
     </Suspense>
   );
@@ -196,13 +199,15 @@ interface SceneContentProps {
   hiddenTypes: Set<EntityType>;
   showLabels: boolean;
   showOrbits: boolean;
+  labelDistanceScale: number;
 }
 
 // Scene component
 const SceneContent: React.FC<SceneContentProps> = ({ 
   hiddenTypes, 
   showLabels,
-  showOrbits
+  showOrbits,
+  labelDistanceScale
 }) => {
   const { 
     celestialSystem, 
@@ -384,6 +389,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
                   showOrbits={showOrbits && (body.type === 'planet' || body.type === 'moon')} // Only show orbits for planets/moons
                   parentPosition={parentBody ? parentBody.position : null}
                   relativePosition={relativePosition}
+                  labelDistanceScale={labelDistanceScale}
                 />
               </Suspense>
               
@@ -619,6 +625,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
               showOrbits={false} // Don't show orbits for jump points
               parentPosition={parentBody ? parentBody.position : null}
               relativePosition={relativePosition}
+              labelDistanceScale={labelDistanceScale}
             />
           );
         })}
@@ -665,6 +672,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
               showOrbits={false} // Don't show orbits for points of interest
               parentPosition={parentBody ? parentBody.position : null}
               relativePosition={relativePosition}
+              labelDistanceScale={labelDistanceScale}
             />
           );
         })}
@@ -681,6 +689,7 @@ const StarMap: React.FC = () => {
   const [currentCameraPosition, setCurrentCameraPosition] = useState<THREE.Vector3>(new THREE.Vector3());
   const [currentCameraTarget, setCurrentCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3());
   const [labelsVisible, setLabelsVisible] = useState(true);
+  const [labelDistanceScale, setLabelDistanceScale] = useState(1.0); // New state for label distance scaling
   
   // Ref for container element
   const containerRef = useRef<HTMLDivElement>(null);
@@ -810,6 +819,11 @@ const StarMap: React.FC = () => {
     setShowOrbits(!showOrbits);
   };
   
+  const handleLabelDistanceChange = (scale: number) => {
+    console.log(`Setting label distance scale to: ${scale.toFixed(2)}`);
+    setLabelDistanceScale(scale);
+  };
+  
   if (isLoading) {
     return <div>Loading celestial data...</div>;
   }
@@ -831,6 +845,7 @@ const StarMap: React.FC = () => {
         onFocusEntity={handleFocusEntity}
         onToggleLabels={handleToggleLabels}
         onToggleOrbits={handleToggleOrbits}
+        onLabelDistanceChange={handleLabelDistanceChange}
         labelsVisible={labelsVisible}
         orbitsVisible={showOrbits}
         cameraPosition={currentCameraPosition}
@@ -865,6 +880,7 @@ const StarMap: React.FC = () => {
                 hiddenTypes={hiddenTypes} 
                 showLabels={labelsVisible}
                 showOrbits={showOrbits}
+                labelDistanceScale={labelDistanceScale}
               />
             ) : (
               <FallbackObject name="Loading star system..." />

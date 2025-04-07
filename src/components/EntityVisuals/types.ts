@@ -59,6 +59,7 @@ export interface EntityRendererProps {
   showOrbits?: boolean;
   parentPosition?: Vector3 | null;
   relativePosition?: Vector3 | null;
+  labelDistanceScale?: number;
 }
 
 /**
