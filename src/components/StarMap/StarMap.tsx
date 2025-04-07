@@ -270,7 +270,12 @@ const SceneContent: React.FC<SceneContentProps> = ({
     contextId = celestialSystem.rootId;
   }
   
-  console.log(`[DEBUG] View context: systemView=${isSystemView}, detailView=${isDetailView}, contextId=${contextId}`);
+  // Dynamic system view check based on camera distance
+  // If we're far enough from any selected object, treat as transitioning to system view
+  const SYSTEM_VIEW_DISTANCE_THRESHOLD = 7.0; // Distance at which we consider the view "zoomed out"
+  const isTransitioningToSystemView = cameraDistance > SYSTEM_VIEW_DISTANCE_THRESHOLD;
+  
+  console.log(`[DEBUG] View context: systemView=${isSystemView}, detailView=${isDetailView}, contextId=${contextId}, cameraDistance=${cameraDistance.toFixed(6)}, isTransitioning=${isTransitioningToSystemView}`);
   // -------------------------------------------
   
   return (
@@ -587,10 +592,24 @@ const SceneContent: React.FC<SceneContentProps> = ({
       {celestialSystem.jumpPoints
         .filter(jump => {
           if (hiddenTypes.has('jumppoint')) return false;
+          
           // In system view, show JPs parented to the root (if any)
           if (isSystemView && jump.parentId === celestialSystem.rootId) return true;
+          
+          // When zoomed out far enough, show all jump points in the system
+          if (!isSystemView && isTransitioningToSystemView) {
+            console.log(`[POI-DEBUG] Showing jump point ${jump.name} because we're zoomed out (distance: ${cameraDistance.toFixed(6)})`);
+            return true;
+          }
+          
           // In focused view, show JPs parented to the context ID
           if (!isSystemView && jump.parentId === contextId) return true;
+          
+          // DEBUGGING: Log why jump points are being filtered out
+          if (!isSystemView) {
+            console.log(`[POI-DEBUG] Jump point ${jump.name} filtered out - parentId: ${jump.parentId}, contextId: ${contextId}, isSystemView: ${isSystemView}, distance: ${cameraDistance.toFixed(6)}`);
+          }
+          
           return false;
         })
         .map((jump) => {
@@ -626,10 +645,24 @@ const SceneContent: React.FC<SceneContentProps> = ({
         .filter(poi => {
           const type = poi.type as EntityType;
           if (hiddenTypes.has(type)) return false;
+          
           // In system view, show POIs parented to the root
           if (isSystemView && poi.parentId === celestialSystem.rootId) return true;
+          
+          // Special handling for lagrange points - show them when zoomed out
+          if (!isSystemView && isTransitioningToSystemView && type === 'lagrangepoint') {
+            console.log(`[POI-DEBUG] Showing lagrange point ${poi.name} because we're zoomed out (distance: ${cameraDistance.toFixed(6)})`);
+            return true;
+          }
+          
           // In focused view, show POIs parented to the context ID
           if (!isSystemView && poi.parentId === contextId) return true;
+          
+          // DEBUGGING: Log why POIs are being filtered out
+          if (!isSystemView && type === 'lagrangepoint') {
+            console.log(`[POI-DEBUG] ${type} ${poi.name} filtered out - parentId: ${poi.parentId}, contextId: ${contextId}, isSystemView: ${isSystemView}, distance: ${cameraDistance.toFixed(6)}`);
+          }
+          
           return false;
         })
         .map((poi) => {
