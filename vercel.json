@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "framework": "create-react-app",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ],
+  "env": {
+    "REACT_APP_DATA_PATH": "/data/stanton_extract.json",
+    "REACT_APP_DEFAULT_SYSTEM": "Stanton",
+    "REACT_APP_VERSION": "0.1.0",
+    "REACT_APP_TITLE": "Celestial Viewer"
+  }
+} 

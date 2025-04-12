@@ -35,7 +35,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   const { celestialSystem, selectedCelestialBodyId, selectCelestialBody } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [labelDistance, setLabelDistance] = useState(1.0);
 
   // Define all callbacks at the top level

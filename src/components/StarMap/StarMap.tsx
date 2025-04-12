@@ -1,10 +1,11 @@
-import React, { useRef, useState, useEffect, Suspense, useLayoutEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense, useLayoutEffect, useCallback } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import useAppStore, { CelestialBody as CelestialBodyType, JumpPoint as JumpPointType, PointOfInterest as PointOfInterestType } from '../../stores/useAppStore';
+import { RouteVisualization } from '../../models/RouteVisualization';
 import { calculateOrbitPosition, degreesToRadians, Vector3 } from '../../utils/coordinateUtils';
-import { calculateScaleFactor } from '../../utils/distanceUtils';
+import { calculateDistance, calculateScaleFactor } from '../../utils/distanceUtils';
 import { EntityRenderer, EntityType } from '../EntityVisuals';
 import { configureRenderer, validatePosition } from '../../utils/scene';
 import SceneControls from '../UI/SceneControls';
@@ -14,6 +15,9 @@ import {
   SYSTEM_VIEW_THRESHOLD, 
   DETAIL_VIEW_THRESHOLD 
 } from '../../config/constants';
+import { convertToMeters, DistanceUnit } from '../../models/RouteAlert';
+import CelestialIdMappingService from '../../services/CelestialIdMappingService';
+import MappingDiscoveryService from '../../services/MappingDiscoveryService';
 
 // Set to false for production
 const DEBUG_VISIBILITY = false;
@@ -195,6 +199,797 @@ const PointOfInterest: React.FC<{
         labelDistanceScale={labelDistanceScale}
       />
     </Suspense>
+  );
+};
+
+// Multiple Route Visualizer Component - renders all route visualizations
+const MultipleRouteVisualizer: React.FC = () => {
+  const { routeVisualizations } = useAppStore();
+  
+  if (!routeVisualizations || routeVisualizations.length === 0) return null;
+  
+  // Filter out visualizations with missing/invalid IDs to avoid repeated errors
+  const validVisualizations = routeVisualizations.filter(viz => 
+    viz.originId && viz.destinationId
+  );
+  
+  // Log once about skipped visualizations if any were filtered out
+  if (validVisualizations.length < routeVisualizations.length) {
+    console.info(`[StarMap] Skipped ${routeVisualizations.length - validVisualizations.length} route visualizations with missing IDs`);
+  }
+  
+  return (
+    <>
+      {validVisualizations.map((viz) => (
+        <SingleRouteVisualizer key={viz.id || `route-${viz.originId}-${viz.destinationId}`} visualization={viz} />
+      ))}
+    </>
+  );
+};
+
+// Single Route Visualizer Component
+const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = ({ visualization }) => {
+  const { celestialSystem, selectCelestialBody } = useAppStore();
+  const [pathPoints, setPathPoints] = useState<THREE.Vector3[]>([]);
+  const [splinePath, setSplinePath] = useState<THREE.CatmullRomCurve3 | null>(null);
+  const [initializedRef] = useState({ current: false });
+  
+  // Use refs for animation values
+  const progressRef = useRef(0);
+  const cameraProgressRef = useRef(0);
+  const animationTimeRef = useRef(0);
+  const particlesGroupRef = useRef<THREE.Group>(null);
+  const lineGroupRef = useRef<THREE.Group>(null);
+  const plumeGroupRef = useRef<THREE.Group>(null);
+  
+  // Track whether we've logged an error for this visualization to prevent duplicate logs
+  const hasLoggedErrorRef = useRef(false);
+  
+  // Debug tracking for position data
+  const [originPosition, setOriginPosition] = useState<THREE.Vector3 | null>(null);
+  const [destinationPosition, setDestinationPosition] = useState<THREE.Vector3 | null>(null);
+  
+  // Animation settings
+  const PARTICLES_COUNT = 50;
+  const ANIMATION_SPEED = 0.5;
+  const CAMERA_ANIMATION_SPEED = 0.4;
+  
+  const { camera, scene, clock } = useThree();
+  
+  // Helper function to compare path points
+  const pathPointsEqual = (a: THREE.Vector3[], b: THREE.Vector3[]): boolean => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].distanceToSquared(b[i]) > 0.001) return false;
+    }
+    return true;
+  };
+  
+  // Update plume size based on camera distance for visibility
+  const updatePlumeSize = useCallback((distance: number, activityLevel: number) => {
+    if (!plumeGroupRef.current) return;
+    
+    // Base size that increases with activity level
+    const baseSize = 0.2 + (activityLevel * 0.3);
+    
+    // More aggressive scaling to ensure visibility at all distances
+    let scaleFactor = 1.0;
+    
+    if (distance > 10) {
+      // System view - increase size significantly
+      scaleFactor = Math.min(distance * 0.12, 12.0); 
+    } else if (distance > 5) {
+      // Medium distance - more aggressive scaling
+      scaleFactor = 1.5 + ((distance - 5) * 0.4); 
+    } else {
+      // Close up, maintain visibility
+      scaleFactor = 1.5;
+    }
+    
+    // Apply the scaled size
+    const finalSize = baseSize * scaleFactor;
+    plumeGroupRef.current.scale.set(finalSize, finalSize, finalSize);
+    
+    // Update light intensity based on distance
+    plumeGroupRef.current.traverse((child) => {
+      if ((child as THREE.Light).isLight) {
+        const light = child as THREE.Light;
+        light.intensity = 12 + (scaleFactor * 8);
+        if (light.type === 'PointLight') {
+          (light as THREE.PointLight).distance = 1.2 * scaleFactor;
+        }
+      }
+    });
+  }, []);
+  
+  // Update plume color based on activity level
+  const updatePlumeColor = useCallback((activityLevel: number) => {
+    if (!plumeGroupRef.current) return;
+    
+    // Always use red color values
+    const r = 1.0;
+    const g = 0.1;
+    const b = 0.0;
+    
+    // Update all plume materials
+    plumeGroupRef.current.traverse((child) => {
+      if (child.type === 'Mesh' && (child as THREE.Mesh).material) {
+        const mesh = child as THREE.Mesh;
+        
+        if (mesh.material instanceof THREE.MeshStandardMaterial) {
+          mesh.material.color.setRGB(r, g, b);
+          mesh.material.emissive.setRGB(r * 0.8, g * 0.0, b * 0.0);
+        } else if (mesh.material instanceof THREE.MeshBasicMaterial) {
+          mesh.material.color.setRGB(r, g, b);
+        }
+      }
+    });
+    
+    // Update point lights color
+    plumeGroupRef.current.traverse((child) => {
+      if ((child as THREE.Light).isLight) {
+        const light = child as THREE.Light;
+        light.color.setRGB(r, g, b);
+      }
+    });
+  }, []);
+  
+  // Set highest rendering priority for route visualizations
+  useEffect(() => {
+    if (lineGroupRef.current) {
+      // Set high renderOrder value for our group
+      lineGroupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          // Use high values to ensure they render on top of other objects
+          child.renderOrder = 9999;
+        }
+      });
+    }
+    
+    if (particlesGroupRef.current) {
+      particlesGroupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          child.renderOrder = 9998;
+        }
+      });
+    }
+    
+    if (plumeGroupRef.current) {
+      // Set high renderOrder for plume group and all children
+      plumeGroupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          child.renderOrder = 10000; // Even higher than route lines
+        }
+      });
+    }
+  }, [pathPoints]);
+  
+  // Create and animate the route visualization
+  useEffect(() => {
+    // Reset the animation state when route visualization changes
+    // Skip if route visualization is invalid
+    if (!visualization) {
+      return;
+    }
+    
+    // Origin and destination must have valid IDs
+    const originId = visualization.originId;
+    const destinationId = visualization.destinationId;
+    
+    if (!originId || !destinationId) {
+      console.error(`[StarMap] Route visualization missing required IDs: originId=${originId}, destinationId=${destinationId}`);
+      return;
+    }
+
+    // Check if celestialSystem is available
+    if (!celestialSystem) {
+      console.error(`[StarMap] Cannot visualize route: celestialSystem is not available`);
+      return;
+    }
+ 
+    // Find the celestial bodies for origin and destination
+    const originBody = celestialSystem.celestialBodies.find(body => body.id === originId);
+    const destinationBody = celestialSystem.celestialBodies.find(body => body.id === destinationId);
+    
+    // Try alternative lookup methods if direct ID match fails
+    let finalOriginBody = originBody;
+    let finalDestinationBody = destinationBody;
+    
+    // Emergency mapping for known problematic IDs
+    const knownUuidMappings: Record<string, string> = {
+      // Based on logs - map problematic alert IDs to actual system IDs
+      '8af309da-4560-48df-8223-ddd02c016fb3': 'a8f25b76-f1dc-422f-ac6d-04360f720817', // Stanton
+      '52a77839-4e55-4cdd-bdd3-ac7bb9626b03': '141e4d71-edc6-4778-936b-a36d078de623', // Hurston
+      '20f3f4d3-d6fb-4f8d-9e56-df6308fce7a5': '0e0d020f-83a4-4ef6-885e-a568e451352f', // Crusader 
+      'a6e9252e-4c72-4e51-adbe-5e2222cc79c2': '50a987c9-cbf5-4eb8-937e-b36bcf35c807', // ArcCorp
+      'd6fc1705-6aba-4dbe-ba24-1ea80cb8d00d': '03b20c59-7445-4898-be57-0e9eca86d79a', // microTech
+      'd191779b-ac62-4c84-90a5-7721aefb97c4': '141e4d71-edc6-4778-936b-a36d078de623', // Hurston PvP Area
+      'b3557a17-1d2d-4b7b-92ef-5e20445b10ea': '03b20c59-7445-4898-be57-0e9eca86d79a', // MicroTech Orbit
+      '8e38ba99-f1cd-49df-bc4e-5ef9309b511f': '50a987c9-cbf5-4eb8-937e-b36bcf35c807'  // ArcCorp City
+    };
+    
+    // Handle missing origin body
+    if (!finalOriginBody) {
+      console.warn(`[StarMap] No exact ID match for: ${originId}. Trying mapping service...`);
+      
+      // Try emergency mapping first
+      if (knownUuidMappings[originId]) {
+        const emergencyMappedId = knownUuidMappings[originId];
+        finalOriginBody = celestialSystem.celestialBodies.find(body => body.id === emergencyMappedId);
+        
+        if (finalOriginBody) {
+          console.log(`[StarMap] 🔥 EMERGENCY MAPPING: ${originId} → ${emergencyMappedId} (${finalOriginBody.name})`);
+          
+          // Store this mapping for future use
+          CelestialIdMappingService.addDirectUuidMapping(originId, emergencyMappedId);
+        }
+      }
+      
+      // If emergency mapping didn't work, try the regular mapping service
+      if (!finalOriginBody) {
+        const mappedOriginId = CelestialIdMappingService.convertAlertIdToSystemId(originId);
+        if (mappedOriginId) {
+          finalOriginBody = celestialSystem.celestialBodies.find(body => body.id === mappedOriginId);
+          if (finalOriginBody) {
+            console.log(`[StarMap] Found origin through mapping service: ${originId} -> ${mappedOriginId}`);
+            
+            // Record successful mapping - use addDirectUuidMapping as a workaround until recordSuccessfulUse is fully implemented
+            CelestialIdMappingService.addDirectUuidMapping(originId, mappedOriginId);
+          }
+        }
+      }
+    }
+    
+    // Handle missing destination body
+    if (!finalDestinationBody) {
+      console.warn(`[StarMap] No exact ID match for: ${destinationId}. Trying mapping service...`);
+      
+      // Try emergency mapping first
+      if (knownUuidMappings[destinationId]) {
+        const emergencyMappedId = knownUuidMappings[destinationId];
+        finalDestinationBody = celestialSystem.celestialBodies.find(body => body.id === emergencyMappedId);
+        
+        if (finalDestinationBody) {
+          console.log(`[StarMap] 🔥 EMERGENCY MAPPING: ${destinationId} → ${emergencyMappedId} (${finalDestinationBody.name})`);
+          
+          // Store this mapping for future use
+          CelestialIdMappingService.addDirectUuidMapping(destinationId, emergencyMappedId);
+        }
+      }
+      
+      // If emergency mapping didn't work, try the regular mapping service
+      if (!finalDestinationBody) {
+        const mappedDestinationId = CelestialIdMappingService.convertAlertIdToSystemId(destinationId);
+        if (mappedDestinationId) {
+          finalDestinationBody = celestialSystem.celestialBodies.find(body => body.id === mappedDestinationId);
+          if (finalDestinationBody) {
+            console.log(`[StarMap] Found destination through mapping service: ${destinationId} -> ${mappedDestinationId}`);
+            
+            // Record successful mapping - use addDirectUuidMapping as a workaround until recordSuccessfulUse is fully implemented
+            CelestialIdMappingService.addDirectUuidMapping(destinationId, mappedDestinationId);
+          }
+        }
+      }
+    }
+    
+    // If we couldn't find bodies, we can't visualize
+    if (!finalOriginBody || !finalDestinationBody) {
+      console.error(`[StarMap] Failed to find celestial bodies for route visualization. Origin: ${originId}, Destination: ${destinationId}`);
+      return;
+    }
+    
+    // Log the final route we're visualizing
+    console.log(`Route visualization changed: \n{origin: '${finalOriginBody.name}', destination: '${finalDestinationBody.name}', animate: ${visualization.animate}}`);
+    
+    // Calculate positions for the origin and destination
+    // Scale down for visualization (apply universal scene scale factor)
+    const originPos = new THREE.Vector3(
+      finalOriginBody.position.x * SCENE_SCALE,
+      finalOriginBody.position.y * SCENE_SCALE,
+      finalOriginBody.position.z * SCENE_SCALE
+    );
+    
+    const destinationPos = new THREE.Vector3(
+      finalDestinationBody.position.x * SCENE_SCALE,
+      finalDestinationBody.position.y * SCENE_SCALE,
+      finalDestinationBody.position.z * SCENE_SCALE
+    );
+    
+    // Check if positions have changed before updating state to prevent infinite loops
+    const positionsChanged = 
+      !originPosition || 
+      !destinationPosition ||
+      originPosition.distanceToSquared(originPos) > 0.001 ||
+      destinationPosition.distanceToSquared(destinationPos) > 0.001;
+    
+    // Only update positions if they've changed
+    if (positionsChanged) {
+      setOriginPosition(originPos);
+      setDestinationPosition(destinationPos);
+    }
+    
+    // Debug log actual positions
+    console.log(`[StarMap] Visualization positions: Origin(${finalOriginBody.name}): ${JSON.stringify(finalOriginBody.position)}, Destination(${finalDestinationBody.name}): ${JSON.stringify(finalDestinationBody.position)}`);
+    console.log(`[StarMap] Visualization scaled positions: Origin: ${JSON.stringify(originPos)}, Destination: ${JSON.stringify(destinationPos)}`);
+    
+    // Create a straight line path
+    const allPoints = [originPos, destinationPos];
+    const straightPath = new THREE.CatmullRomCurve3(allPoints, false);
+    
+    // Only update path if it's different to prevent infinite loops
+    const shouldUpdatePath = 
+      !splinePath || 
+      pathPoints.length === 0 ||
+      !pathPointsEqual(straightPath.getPoints(100), pathPoints);
+    
+    if (shouldUpdatePath) {
+      // Store path for animations
+      setSplinePath(straightPath);
+      
+      // Get points for rendering
+      const pathPointsArray = straightPath.getPoints(100);
+      setPathPoints(pathPointsArray);
+    }
+    
+    // Calculate total route distance in real units
+    // Both bodies are now guaranteed to exist due to our checks above
+    const routeDistance = calculateDistance(finalOriginBody.position, finalDestinationBody.position);
+    
+    // Generate particle objects
+    if (particlesGroupRef.current && straightPath) {
+      // Create multiple particles along the path
+      for (let i = 0; i < PARTICLES_COUNT; i++) {
+        // Create particle geometry
+        const particleGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+        const particleMaterial = new THREE.MeshBasicMaterial({
+          color: new THREE.Color('#80dfff'),
+          transparent: true,
+          opacity: 0,
+          depthTest: false
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial.clone());
+        
+        // Set random initial position along the path
+        const initialT = Math.random();
+        const position = straightPath.getPoint(initialT);
+        particle.position.copy(position);
+        
+        // Store speed and initial offset for animation
+        particle.userData = {
+          speed: 0.2 + Math.random() * 0.3,
+          offset: initialT,
+          baseSize: 0.02,
+          glowSize: 0.05
+        };
+        
+        particlesGroupRef.current.add(particle);
+        
+        // Add a glow effect for larger particles
+        if (i % 3 === 0) {
+          const glowGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+          const glowMaterial = new THREE.MeshBasicMaterial({
+            color: new THREE.Color('#ffffff'),
+            transparent: true,
+            opacity: 0,
+            depthTest: false
+          });
+          
+          const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+          particle.add(glowSphere);
+        }
+      }
+    }
+    
+    // If we have a distance value, position the plume
+    if (visualization.distanceValue !== null && visualization.distanceValue !== undefined && plumeGroupRef.current && straightPath) {
+      // Convert distance to meters for calculation
+      const distanceInMeters = convertToMeters(
+        visualization.distanceValue !== undefined && visualization.distanceValue !== null 
+          ? visualization.distanceValue 
+          : 0,
+        visualization.distanceUnit || 'km' as DistanceUnit
+      );
+      
+      // Calculate position along the path as a ratio of total distance
+      const routeType = visualization.routeType || 'interdiction';
+      
+      // For interdiction alerts, properly position based on distance traveled
+      let ratio = 0;
+      if (routeType === 'interdiction') {
+        // Calculate distance as a fraction of total route length
+        ratio = Math.min(distanceInMeters / (routeDistance || 1), 1.0);
+        
+        // Add some basic validation to ensure ratio is valid
+        if (isNaN(ratio) || !isFinite(ratio)) {
+          console.warn(`[StarMap] Invalid ratio calculated for alert position: ${ratio}, using default 0.5`);
+          ratio = 0.5; // Use a default mid-point
+        }
+        
+        console.log(`[StarMap] Positioning interdiction alert at distance ${visualization.distanceValue} ${visualization.distanceUnit} (ratio: ${ratio.toFixed(2)}) of total distance ${(routeDistance / 1000).toFixed(1)}km`);
+      } else {
+        // For other alert types, use midpoint if no specific position
+        ratio = 0.5;
+      }
+      
+      // Position plume at the specified distance along the straight path
+      const plumePosition = straightPath.getPoint(ratio);
+      plumeGroupRef.current.position.copy(plumePosition);
+      
+      // Calculate the tangent direction for plume orientation
+      const tangent = straightPath.getTangent(ratio);
+      
+      // Orient plume to follow path direction
+      if (tangent.length() > 0) {
+        const lookAtPoint = new THREE.Vector3().addVectors(plumePosition, tangent);
+        const upVector = new THREE.Vector3(0, 1, 0);
+        
+        // Create a temporary matrix for orientation
+        const tempMatrix = new THREE.Matrix4();
+        tempMatrix.lookAt(plumePosition, lookAtPoint, upVector);
+        
+        // Set rotation from matrix
+        const tempQuaternion = new THREE.Quaternion();
+        tempQuaternion.setFromRotationMatrix(tempMatrix);
+        plumeGroupRef.current.quaternion.copy(tempQuaternion);
+      }
+      
+      // Set plume size based on activity level and camera distance
+      updatePlumeSize(
+        camera.position.distanceTo(plumePosition), 
+        visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5
+      );
+      
+      // Visibility of plume
+      plumeGroupRef.current.visible = true;
+      
+      // Update plume material color based on activity level
+      updatePlumeColor(visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5);
+    } else if (plumeGroupRef.current) {
+      // No distance specified, hide the plume
+      plumeGroupRef.current.visible = false;
+    }
+    
+    // Clean up animation on unmount
+    return () => {
+      initializedRef.current = false;
+    };
+  }, [visualization, celestialSystem, camera, updatePlumeSize, updatePlumeColor, selectCelestialBody]);
+  
+  // Handle animations in the main frame loop
+  useFrame((state, delta) => {
+    // First time initialization
+    if (!initializedRef.current && visualization) {
+      initializedRef.current = true;
+      progressRef.current = 0;
+      cameraProgressRef.current = 0;
+      animationTimeRef.current = 0;
+    }
+    
+    // Only run animations if we have route visualization and a path
+    if (visualization && splinePath && initializedRef.current) {
+      // Increment animation time
+      animationTimeRef.current += delta;
+      
+      // Path animation - animate particles along the path
+      if (particlesGroupRef.current && pathPoints.length > 0) {
+        particlesGroupRef.current.children.forEach((particle, i) => {
+          if (particle instanceof THREE.Mesh && splinePath) {
+            // Get particle data
+            const { speed, offset } = particle.userData;
+            
+            // Calculate current position along the path (0-1)
+            const time = (animationTimeRef.current * speed * ANIMATION_SPEED + offset) % 1;
+            
+            // Position particle along the curve
+            const position = splinePath.getPoint(time);
+            particle.position.copy(position);
+            
+            // Fade in during first 20% of animation
+            const fadeInProgress = Math.min(1, progressRef.current * 5);
+            
+            // Calculate pulse effect
+            const pulseEffect = Math.sin(animationTimeRef.current * 5 + i * 0.2) * 0.3 + 0.7;
+            
+            // Apply opacity based on animation progress
+            if (particle.material instanceof THREE.Material) {
+              particle.material.opacity = fadeInProgress * 0.7 * pulseEffect;
+            }
+            
+            // Scale base on animation and pulse
+            const baseSize = particle.userData.baseSize || 0.02;
+            const particleSize = baseSize * (0.8 + pulseEffect * 0.4);
+            particle.scale.set(particleSize, particleSize, particleSize);
+            
+            // Handle child glow effects
+            if (particle.children.length > 0) {
+              const glowSphere = particle.children[0] as THREE.Mesh;
+              if (glowSphere.material instanceof THREE.Material) {
+                glowSphere.material.opacity = fadeInProgress * 0.4 * pulseEffect;
+              }
+              
+              const glowSize = (particle.userData.glowSize || 0.05) * (0.7 + pulseEffect * 0.5);
+              glowSphere.scale.set(glowSize, glowSize, glowSize);
+            }
+          }
+        });
+        
+        // Update global animation progress for fading effects
+        progressRef.current = Math.min(1, progressRef.current + delta * ANIMATION_SPEED);
+      }
+      
+      // Update path line materials based on progress
+      if (lineGroupRef.current && progressRef.current < 1.0) {
+        lineGroupRef.current.children.forEach((child, index) => {
+          if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
+            // Adjust opacity based on line type and progress
+            if (index === 0) { // Main line
+              child.material.opacity = 0.95 * progressRef.current;
+            } else if (index === 1) { // Glow line
+              child.material.opacity = 0.6 * progressRef.current;
+            } else if (index === 2) { // Core line
+              child.material.opacity = 0.8 * progressRef.current;
+            }
+          }
+        });
+      }
+      
+      // Camera animation along the route if requested
+      if (visualization.animate && cameraProgressRef.current < 1.0) {
+        // Update camera progress
+        cameraProgressRef.current = Math.min(cameraProgressRef.current + delta * CAMERA_ANIMATION_SPEED, 1.0);
+        
+        // Handle camera movement
+        if (cameraProgressRef.current < 1.0 && celestialSystem && splinePath) {
+          // We already have a valid splinePath, so we can use it directly
+          // without rechecking if the bodies exist
+          
+          // Use ease-in-out curve for smooth animation
+          const t = cameraProgressRef.current < 0.5 
+            ? 2 * cameraProgressRef.current * cameraProgressRef.current 
+            : 1 - Math.pow(-2 * cameraProgressRef.current + 2, 2) / 2;
+          
+          // Get position along the spline path for smoother camera movement
+          const cameraTargetPosition = splinePath.getPoint(t);
+          
+          // Convert back to world coordinates for camera target
+          const worldPos = new THREE.Vector3(
+            cameraTargetPosition.x / SCENE_SCALE,
+            cameraTargetPosition.y / SCENE_SCALE,
+            cameraTargetPosition.z / SCENE_SCALE
+          );
+          
+          // Update camera target
+          if (!isNaN(worldPos.x) && !isNaN(worldPos.y) && !isNaN(worldPos.z)) {
+            useAppStore.getState().setCameraTarget({
+              x: worldPos.x,
+              y: worldPos.y,
+              z: worldPos.z
+            });
+          }
+        } else if (cameraProgressRef.current >= 1.0 && visualization.destinationId) {
+          // Only select the destination if we know it exists already
+          // Since we've already verified destinationBody exists earlier, we can just use it directly
+          console.log("Camera animation complete, selecting destination:", visualization.destinationId);
+          selectCelestialBody(visualization.destinationId);
+        }
+      }
+      
+      // Update plume animation effects
+      if (plumeGroupRef.current && plumeGroupRef.current.visible && 
+          visualization.distanceValue !== null && visualization.distanceValue !== undefined) {        
+        // Update plume size based on camera distance
+        const distance = camera.position.distanceTo(plumeGroupRef.current.position);
+        updatePlumeSize(
+          distance, 
+          visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5
+        );
+        
+        // Animate pulse effects on plume
+        const pulseTime = animationTimeRef.current * 3;
+        plumeGroupRef.current.children.forEach((child, i) => {
+          if (child.name === 'pulse' && child instanceof THREE.Mesh) {
+            // Calculate pulse scale using sine wave
+            const pulseScale = 1 + 0.3 * Math.sin(pulseTime + i * 1.5);
+            child.scale.set(pulseScale, pulseScale, pulseScale);
+            
+            // Adjust opacity with the pulse
+            if (child.material instanceof THREE.MeshBasicMaterial) {
+              child.material.opacity = 0.3 + 0.2 * Math.sin(pulseTime * 0.5 + i);
+            }
+          }
+        });
+        
+        // Rotate the plume decorative elements for effect
+        plumeGroupRef.current.children.forEach(child => {
+          if (child.name === 'rotator') {
+            child.rotation.y += delta * 0.5;
+            child.rotation.z += delta * 0.3;
+          }
+        });
+      }
+    }
+  });
+  
+  // Calculate path width based on camera distance to stay visible at all distances
+  const cameraDistance = camera.position.length();
+  const pathWidth = Math.max(3, Math.min(10, cameraDistance * 0.25));
+  
+  return (
+    <group>
+      {/* Particles Group for flowing particles along the route */}
+      <group ref={particlesGroupRef} />
+      
+      {/* Holographic Route Path */}
+      {pathPoints.length > 0 && (
+        <group ref={lineGroupRef}>
+          {/* Main route line */}
+          <line>
+            <bufferGeometry attach="geometry">
+              <float32BufferAttribute 
+                attach="attributes-position" 
+                args={[new Float32Array(pathPoints.flatMap(p => [p.x, p.y, p.z])), 3]} 
+              />
+            </bufferGeometry>
+            <lineBasicMaterial 
+              attach="material"
+              color="#4cc9f0" 
+              opacity={0.0} // Start transparent, animation will handle opacity
+              transparent={true}
+              linewidth={pathWidth}
+              depthTest={false}
+            />
+          </line>
+          
+          {/* Secondary glow line */}
+          <line>
+            <bufferGeometry attach="geometry">
+              <float32BufferAttribute 
+                attach="attributes-position" 
+                args={[new Float32Array(pathPoints.flatMap(p => [p.x, p.y, p.z])), 3]} 
+              />
+            </bufferGeometry>
+            <lineBasicMaterial 
+              attach="material"
+              color="#80dfff" 
+              opacity={0.0} // Start transparent, animation will handle opacity
+              transparent={true}
+              linewidth={pathWidth * 2.0}
+              depthTest={false}
+            />
+          </line>
+          
+          {/* Additional bright core line for visibility */}
+          <line>
+            <bufferGeometry attach="geometry">
+              <float32BufferAttribute 
+                attach="attributes-position" 
+                args={[new Float32Array(pathPoints.flatMap(p => [p.x, p.y, p.z])), 3]} 
+              />
+            </bufferGeometry>
+            <lineBasicMaterial 
+              attach="material"
+              color="#ffffff" 
+              opacity={0.0} // Start transparent, animation will handle opacity
+              transparent={true}
+              linewidth={pathWidth * 0.5}
+              depthTest={false}
+            />
+          </line>
+        </group>
+      )}
+      
+      {/* Enhanced Alert Plume with multiple visual elements */}
+      <group ref={plumeGroupRef}>
+        {/* Core plume sphere */}
+        <mesh>
+          <sphereGeometry args={[0.12, 24, 24]} />
+          <meshStandardMaterial 
+            color="#ff1500"
+            emissive="#ff0000"
+            emissiveIntensity={1.2}
+            transparent={true}
+            opacity={0.9}
+            depthTest={false}
+          />
+        </mesh>
+        
+        {/* Outer glow spheres */}
+        <mesh>
+          <sphereGeometry args={[0.2, 24, 24]} />
+          <meshBasicMaterial 
+            color="#ff3300"
+            transparent={true}
+            opacity={0.5}
+            depthTest={false}
+          />
+        </mesh>
+        
+        <mesh>
+          <sphereGeometry args={[0.3, 16, 16]} />
+          <meshBasicMaterial 
+            color="#ff5500"
+            transparent={true}
+            opacity={0.3}
+            depthTest={false}
+          />
+        </mesh>
+        
+        {/* Glow light */}
+        <pointLight 
+          distance={1.2} 
+          intensity={20} 
+          color="#ff2200"
+          decay={2}
+        />
+        
+        {/* Pulse animation spheres */}
+        {Array.from({ length: 4 }).map((_, i) => (
+          <mesh key={i} name="pulse">
+            <sphereGeometry args={[0.15 + i * 0.05, 12, 12]} />
+            <meshBasicMaterial 
+              color="#ff3300"
+              transparent={true}
+              opacity={0.25 - i * 0.05}
+              depthTest={false}
+            />
+          </mesh>
+        ))}
+        
+        {/* Decorative rotating elements */}
+        <group name="rotator">
+          {/* Rings */}
+          <mesh rotation={[Math.PI/2, 0, 0]}>
+            <torusGeometry args={[0.25, 0.02, 8, 24]} />
+            <meshBasicMaterial 
+              color="#ff4400" 
+              transparent={true}
+              opacity={0.5}
+              depthTest={false}
+            />
+          </mesh>
+          
+          <mesh rotation={[0, Math.PI/2, Math.PI/4]}>
+            <torusGeometry args={[0.22, 0.01, 8, 20]} />
+            <meshBasicMaterial 
+              color="#ff2200" 
+              transparent={true}
+              opacity={0.4}
+              depthTest={false}
+            />
+          </mesh>
+        </group>
+        
+        {/* Direction indicators */}
+        <mesh rotation={[0, 0, Math.PI/2]}>
+          <coneGeometry args={[0.06, 0.15, 8]} />
+          <meshBasicMaterial 
+            color="#ffffff"
+            transparent={true}
+            opacity={0.7}
+            depthTest={false}
+          />
+        </mesh>
+        
+        {/* Small warning beacons */}
+        {Array.from({ length: 4 }).map((_, i) => {
+          const angle = (i / 4) * Math.PI * 2;
+          return (
+            <pointLight 
+              key={i}
+              position={[
+                Math.cos(angle) * 0.25,
+                Math.sin(angle) * 0.25,
+                0
+              ]}
+              distance={0.5}
+              intensity={5}
+              color="#ff0000"
+            />
+          );
+        })}
+      </group>
+    </group>
   );
 };
 
@@ -421,7 +1216,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
       <ambientLight intensity={0.5} />
       <pointLight position={[0, 0, 0]} intensity={3} color="#ffffff" distance={100} decay={2} />
       <directionalLight position={[10, 10, 10]} intensity={1} color="#ffffff" />
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} />
+      <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} />
 
       {/* Render celestial bodies (Planets/Stars) */}
       {celestialSystem.celestialBodies
@@ -1040,6 +1835,8 @@ const SceneContent: React.FC<SceneContentProps> = ({
           );
         })}
       
+      {/* Add the RouteVisualizer component LAST to ensure highest render priority */}
+      <MultipleRouteVisualizer />
     </>
   );
 };

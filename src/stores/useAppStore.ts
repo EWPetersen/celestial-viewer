@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { Vector3 } from '../utils/coordinateUtils';
-import { RouteAlert } from '../models/RouteAlert';
+import { RouteVisualization } from '../models/RouteVisualization';
+import RouteAlertService from '../services/RouteAlertService';
+import CelestialIdMappingService from '../services/CelestialIdMappingService';
+import { Region } from '../models/RouteAlert';
 
 // Define types for our celestial data
 export interface CelestialSystem {
@@ -99,15 +102,6 @@ export interface AppState {
   selectedRouteId: string | null;
   showOrbits: boolean;
   
-  // Authentication
-  isAuthenticated: boolean;
-  isGuest: boolean;
-  
-  // UI panels
-  showAuthPanel: boolean;
-  showRouteAlertCreator: boolean;
-  showRouteAlertViewer: boolean;
-  
   // Camera state
   cameraPosition: Vector3;
   cameraTarget: Vector3;
@@ -117,9 +111,9 @@ export interface AppState {
   routes: Route[];
   currentRoute: Route | null;
   
-  // Route alerts
-  routeAlerts: RouteAlert[];
-  selectedRouteAlertId: string | null;
+  // Route visualizations
+  routeVisualizations: RouteVisualization[];
+  unsubscribeRoutesVisualization?: () => void;
   
   // Time controls
   simulationTime: number;
@@ -135,12 +129,6 @@ export interface AppState {
   selectJumpPoint: (id: string | null) => void;
   selectRoute: (id: string | null) => void;
   
-  setAuthState: (isAuthenticated: boolean, isGuest: boolean) => void;
-  
-  setShowAuthPanel: (show: boolean) => void;
-  setShowRouteAlertCreator: (show: boolean) => void;
-  setShowRouteAlertViewer: (show: boolean) => void;
-  
   setCameraPosition: (position: Vector3) => void;
   setCameraTarget: (target: Vector3) => void;
   setCameraZoom: (zoom: number) => void;
@@ -150,10 +138,10 @@ export interface AppState {
   deleteRoute: (id: string) => void;
   setCurrentRoute: (route: Route | null) => void;
   
-  setRouteAlerts: (alerts: RouteAlert[]) => void;
-  addRouteAlert: (alert: RouteAlert) => void;
-  updateRouteAlert: (alert: RouteAlert) => void;
-  selectRouteAlert: (id: string | null) => void;
+  // New methods for route visualizations
+  addRouteVisualization: (visualization: RouteVisualization) => void;
+  updateRouteVisualization: (visualization: RouteVisualization) => void;
+  removeRouteVisualization: (id?: string) => void;
   
   setSimulationTime: (time: number) => void;
   setTimeMultiplier: (multiplier: number) => void;
@@ -174,13 +162,6 @@ const useAppStore = create<AppState>((set) => ({
   selectedRouteId: null,
   showOrbits: true,
   
-  isAuthenticated: false,
-  isGuest: false,
-  
-  showAuthPanel: false,
-  showRouteAlertCreator: false,
-  showRouteAlertViewer: false,
-  
   cameraPosition: { x: 0, y: 0, z: 100 },
   cameraTarget: { x: 0, y: 0, z: 0 },
   cameraZoom: 1,
@@ -188,8 +169,8 @@ const useAppStore = create<AppState>((set) => ({
   routes: [],
   currentRoute: null,
   
-  routeAlerts: [],
-  selectedRouteAlertId: null,
+  // Initialize route visualizations
+  routeVisualizations: [],
   
   simulationTime: Date.now(),
   timeMultiplier: 1,
@@ -222,26 +203,6 @@ const useAppStore = create<AppState>((set) => ({
   
   selectRoute: (id) => set({ selectedRouteId: id }),
   
-  setAuthState: (isAuthenticated, isGuest) => set({ 
-    isAuthenticated,
-    isGuest
-  }),
-  
-  setShowAuthPanel: (show) => {
-    console.log('setShowAuthPanel called with:', show);
-    set({ showAuthPanel: show });
-  },
-  
-  setShowRouteAlertCreator: (show) => {
-    console.log('setShowRouteAlertCreator called with:', show);
-    set({ showRouteAlertCreator: show });
-  },
-  
-  setShowRouteAlertViewer: (show) => {
-    console.log('setShowRouteAlertViewer called with:', show);
-    set({ showRouteAlertViewer: show });
-  },
-  
   setCameraPosition: (position) => set({ cameraPosition: position }),
   setCameraTarget: (target) => set({ cameraTarget: target }),
   setCameraZoom: (zoom) => set({ cameraZoom: zoom }),
@@ -263,17 +224,22 @@ const useAppStore = create<AppState>((set) => ({
   
   setCurrentRoute: (route) => set({ currentRoute: route }),
   
-  setRouteAlerts: (alerts) => set({ routeAlerts: alerts }),
-  
-  addRouteAlert: (alert) => set((state) => ({
-    routeAlerts: [...state.routeAlerts, alert]
+  // New methods for route visualizations
+  addRouteVisualization: (visualization) => set((state) => ({
+    routeVisualizations: [...state.routeVisualizations, visualization]
   })),
   
-  updateRouteAlert: (alert) => set((state) => ({
-    routeAlerts: state.routeAlerts.map(a => a.id === alert.id ? alert : a)
+  updateRouteVisualization: (visualization) => set((state) => ({
+    routeVisualizations: state.routeVisualizations.map(v => 
+      v.id === visualization.id ? visualization : v
+    )
   })),
   
-  selectRouteAlert: (id) => set({ selectedRouteAlertId: id }),
+  removeRouteVisualization: (id) => set((state) => ({
+    routeVisualizations: id 
+      ? state.routeVisualizations.filter(v => v.id !== id)
+      : [] // If no ID is provided, clear all visualizations
+  })),
   
   setSimulationTime: (time) => set({ simulationTime: time }),
   setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
@@ -281,4 +247,46 @@ const useAppStore = create<AppState>((set) => ({
   setShowOrbits: (show) => set({ showOrbits: show })
 }));
 
-export default useAppStore; 
+// Initialize visualization subscription after store is ready
+const initVisualizationSubscription = () => {
+  // Return if the store isn't initialized yet
+  const store = useAppStore.getState();
+  if (!store) return;
+  
+  console.log('[useAppStore] Initializing route visualization subscription');
+  
+  // Subscribe to route alerts for visualization
+  const unsubscribe = RouteAlertService.subscribeToRouteVisualizations(
+    (visualizations) => {
+      // Filter out invalid visualizations (missing origin or destination IDs)
+      const validVisualizations = visualizations.filter(viz => viz.originId && viz.destinationId);
+      
+      // Log skipped visualizations once
+      if (validVisualizations.length < visualizations.length) {
+        console.info(`[useAppStore] Filtered out ${visualizations.length - validVisualizations.length} invalid route visualizations with missing origin/destination IDs`);
+      }
+      
+      console.log(`[useAppStore] Received ${visualizations.length} route visualizations (${validVisualizations.length} valid)`);
+      
+      // Store valid visualizations in state - using original IDs without any transformation
+      useAppStore.setState((state) => ({
+        ...state,
+        routeVisualizations: validVisualizations
+      }));
+    }
+    // Don't pass any filters to show all alerts regardless of region/shard
+  );
+  
+  // Store the unsubscribe function for cleanup
+  useAppStore.setState((state) => ({
+    ...state,
+    unsubscribeRoutesVisualization: unsubscribe
+  }));
+  
+  return unsubscribe;
+};
+
+// Initialize the subscription when importing the store
+initVisualizationSubscription();
+
+export default useAppStore;

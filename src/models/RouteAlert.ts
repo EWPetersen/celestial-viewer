@@ -1,88 +1,91 @@
 import { Vector3 } from '../utils/coordinateUtils';
 
 export type Region = 'us' | 'eu';
-export type Shard = '010' | '020' | '030' | '040' | '050' | '060' | '070' | '080' | '090' | '100' | 
-                   '110' | '120' | '130' | '140' | '150' | '160' | '170' | '180' | '190' | '200';
-export type DistanceUnit = 'km' | 'Mm' | 'Gm';
+export type DistanceUnit = 'km' | 'm';
+export type AlertType = 'interdiction' | 'pvp';
 
 export interface RouteAlert {
   id: string;
-  createdAt: number; // Timestamp
-  updatedAt: number; // Timestamp
+  type: AlertType;
+  region: Region;
+  shard: number; // 010-300 in increments of 10
+  originId: string;
+  destinationId?: string; // Optional for PvP alerts which might be at a specific location
+  locationId?: string; // Specific location ID for PvP alerts
+  position?: Vector3; // Specific position for alerts
+  distanceTraveled?: number; // Distance traveled when interdiction occurred
+  distanceUnit?: DistanceUnit;
+  timestamp: Date;
   authorId: string;
-  authorName: string;
-  
-  // Route info
-  region: Region;
-  shard: Shard;
-  originCelestialBodyId: string;
-  originCelestialBodyName: string;
-  destinationCelestialBodyId: string;
-  destinationCelestialBodyName: string;
-  
-  // Distance info
-  distance: number;
-  distanceUnit: DistanceUnit;
-  
-  // Calculated values
-  absoluteDistance: number; // Calculated distance in meters between bodies
-  
-  // Safety score
-  safetyScore: number;
-  
-  // Confirmations and disputes
-  confirmations: string[]; // Array of user IDs who confirmed
-  disputes: string[]; // Array of user IDs who disputed
+  authorName?: string;
+  confirmations: number;
+  disputes: number;
+  safetyScore: number; // Calculated based on confirmations vs disputes
+  lastActivity: Date; // Updated when someone confirms or disputes
+  nearestCelestialId?: string; // Nearest celestial body to the alert
+  nearestCelestialDistance?: number; // Distance to the nearest celestial body
 }
 
-export interface RouteAlertCreationData {
-  region: Region;
-  shard: Shard;
-  originCelestialBodyId: string;
-  destinationCelestialBodyId: string;
-  distance: number;
-  distanceUnit: DistanceUnit;
+export interface RouteAlertInteraction {
+  id: string;
+  alertId: string;
+  userId: string;
+  userName?: string;
+  action: 'confirm' | 'dispute';
+  timestamp: Date;
 }
 
-/**
- * Calculate the absolute distance between two Vector3 positions
- */
-export const calculateDistance = (position1: Vector3, position2: Vector3): number => {
-  const dx = position2.x - position1.x;
-  const dy = position2.y - position1.y;
-  const dz = position2.z - position1.z;
-  
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+// Convert meters to kilometers
+export const metersToKilometers = (meters: number): number => {
+  return meters / 1000;
 };
 
-/**
- * Convert distance from unit to meters
- */
+// Convert kilometers to meters
+export const kilometersToMeters = (kilometers: number): number => {
+  return kilometers * 1000;
+};
+
+// Convert any distance to meters (standard unit for calculations)
 export const convertToMeters = (distance: number, unit: DistanceUnit): number => {
-  switch (unit) {
-    case 'km':
-      return distance * 1000;
-    case 'Mm':
-      return distance * 1000000;
-    case 'Gm':
-      return distance * 1000000000;
-    default:
-      return distance;
+  if (unit === 'km') {
+    return kilometersToMeters(distance);
   }
+  return distance;
 };
 
-/**
- * Convert distance from meters to specified unit
- */
+// Convert meters to a specified unit
 export const convertFromMeters = (meters: number, unit: DistanceUnit): number => {
-  switch (unit) {
-    case 'km':
-      return meters / 1000;
-    case 'Mm':
-      return meters / 1000000;
-    case 'Gm':
-      return meters / 1000000000;
-    default:
-      return meters;
+  if (unit === 'km') {
+    return metersToKilometers(meters);
   }
+  return meters;
+};
+
+// Calculate safety score based on confirmations and disputes
+export const calculateSafetyScore = (confirmations: number, disputes: number): number => {
+  if (confirmations === 0 && disputes === 0) {
+    return 50; // Neutral if no interactions
+  }
+  
+  const total = confirmations + disputes;
+  const score = (confirmations / total) * 100;
+  
+  return Math.round(score);
+};
+
+// Check if an alert is still active based on its last activity timestamp
+export const isAlertActive = (lastActivity: Date): boolean => {
+  const now = new Date();
+  const timeDiff = now.getTime() - lastActivity.getTime();
+  const hoursDiff = timeDiff / (1000 * 60 * 60);
+  
+  return hoursDiff <= 24; // Active if less than 24 hours old
+};
+
+// Format a distance with appropriate unit
+export const formatDistance = (distance: number, unit: DistanceUnit): string => {
+  if (unit === 'km') {
+    return `${distance.toLocaleString(undefined, { maximumFractionDigits: 2 })} km`;
+  }
+  return `${distance.toLocaleString(undefined, { maximumFractionDigits: 0 })} m`;
 }; 

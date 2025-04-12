@@ -1,50 +1,112 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { auth } from '../../config/firebase';
-
 /**
- * Authentication service that integrates with Firebase
+ * Basic authentication service
+ * In a real application, this would integrate with a backend authentication system
  */
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut,
+  UserCredential,
+  User as FirebaseUser,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc,
+  onSnapshot,
+  Timestamp 
+} from 'firebase/firestore';
+import { auth, db } from '../../config/firebase';
+
 export interface User {
   id: string;
-  username: string;
   email: string;
+  username?: string;
   roles: string[];
-  isAnonymous: boolean;
+  createdAt: Date;
+  profileRanking?: number;
 }
 
-export interface AuthCredentials {
+export interface LoginCredentials {
   email: string;
   password: string;
 }
 
-export interface SignUpCredentials extends AuthCredentials {
-  username: string;
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  username?: string;
 }
 
 export interface AuthResult {
   success: boolean;
   message?: string;
   user?: User;
-  error?: string;
 }
 
 export class AuthService {
   private static instance: AuthService;
   private currentUser: User | null = null;
+  private firebaseUser: FirebaseUser | null = null;
   private isAuthenticated: boolean = false;
+  private authStateListeners: ((user: User | null) => void)[] = [];
 
   private constructor() {
-    // Set up auth state listener
-    this.setupAuthStateListener();
-    // Check for existing session in localStorage
-    this.loadUserFromStorage();
+    // Set up Firebase auth state listener
+    onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        this.firebaseUser = firebaseUser;
+        try {
+          // Get user document from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          
+          if (userDoc.exists()) {
+            // User exists in Firestore, use that data
+            const userData = userDoc.data() as Omit<User, 'id' | 'createdAt'> & { createdAt: Timestamp };
+            this.currentUser = {
+              id: firebaseUser.uid,
+              ...userData,
+              createdAt: userData.createdAt.toDate()
+            };
+            this.isAuthenticated = true;
+          } else {
+            // User doesn't exist in Firestore yet, create basic record
+            const newUser: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              roles: ['user'],
+              createdAt: new Date(),
+              profileRanking: 0
+            };
+            
+            // Save to Firestore
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              email: newUser.email,
+              roles: newUser.roles,
+              createdAt: newUser.createdAt,
+              profileRanking: newUser.profileRanking
+            });
+            
+            this.currentUser = newUser;
+            this.isAuthenticated = true;
+          }
+        } catch (error) {
+          console.error('Error getting user data:', error);
+          this.currentUser = null;
+          this.isAuthenticated = false;
+        }
+      } else {
+        // User is signed out
+        this.firebaseUser = null;
+        this.currentUser = null;
+        this.isAuthenticated = false;
+      }
+      
+      // Notify listeners of auth state change
+      this.notifyAuthStateListeners();
+    });
   }
 
   /**
@@ -58,179 +120,148 @@ export class AuthService {
   }
 
   /**
-   * Set up Firebase auth state listener
+   * Add an auth state change listener
    */
-  private setupAuthStateListener(): void {
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        this.setCurrentUser(this.mapFirebaseUserToUser(user));
-      } else {
-        this.currentUser = null;
-        this.isAuthenticated = false;
-        localStorage.removeItem('celestial_viewer_user');
-      }
-    });
-  }
-
-  /**
-   * Map Firebase user to our User interface
-   */
-  private mapFirebaseUserToUser(firebaseUser: FirebaseUser): User {
-    return {
-      id: firebaseUser.uid,
-      username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-      email: firebaseUser.email || '',
-      roles: ['user'], // Default role
-      isAnonymous: firebaseUser.isAnonymous
+  public addAuthStateListener(listener: (user: User | null) => void): () => void {
+    this.authStateListeners.push(listener);
+    
+    // Call the listener immediately with current state
+    listener(this.currentUser);
+    
+    // Return a function to remove this listener
+    return () => {
+      this.authStateListeners = this.authStateListeners.filter(l => l !== listener);
     };
   }
 
   /**
-   * Load user data from localStorage if available
+   * Notify all auth state listeners
    */
-  private loadUserFromStorage(): void {
-    const userData = localStorage.getItem('celestial_viewer_user');
-    if (userData) {
-      try {
-        this.currentUser = JSON.parse(userData);
-        this.isAuthenticated = true;
-      } catch (error) {
-        console.error('Failed to parse user data from storage', error);
-        localStorage.removeItem('celestial_viewer_user');
-      }
-    }
+  private notifyAuthStateListeners(): void {
+    this.authStateListeners.forEach(listener => {
+      listener(this.currentUser);
+    });
   }
 
   /**
-   * Set current user and save to storage
+   * Register a new user
    */
-  private setCurrentUser(user: User): void {
-    this.currentUser = user;
-    this.isAuthenticated = true;
-    localStorage.setItem('celestial_viewer_user', JSON.stringify(user));
-  }
-
-  /**
-   * Sign up a new user
-   */
-  public async signUp(email: string, password: string, username: string): Promise<AuthResult> {
+  public async register(credentials: RegisterCredentials): Promise<AuthResult> {
     try {
-      console.log('Attempting to sign up user with email:', email);
+      const { email, password, username } = credentials;
       
-      // Validate password strength
-      if (password.length < 6) {
-        console.error('Password validation failed: must be at least 6 characters');
-        return {
-          success: false,
-          error: 'Password must be at least 6 characters long'
-        };
-      }
-      
-      // Attempt to create Firebase user
+      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const firebaseUser = userCredential.user;
       
-      console.log('User created successfully with Firebase uid:', user.uid);
-      
-      // Update profile with username
-      await updateProfile(userCredential.user, {
-        displayName: username,
-      });
-      
-      // Create a proper user object that matches our User interface
-      const userProfile: User = {
-        id: user.uid,
-        email: user.email || email,
+      // Create user document in Firestore
+      const user: User = {
+        id: firebaseUser.uid,
+        email: email,
         username: username,
         roles: ['user'],
-        isAnonymous: false
+        createdAt: new Date(),
+        profileRanking: 0
       };
       
-      // Save user to local storage
-      this.setCurrentUser(userProfile);
+      await setDoc(doc(db, 'users', firebaseUser.uid), {
+        email: user.email,
+        username: user.username,
+        roles: user.roles,
+        createdAt: user.createdAt,
+        profileRanking: user.profileRanking
+      });
       
-      return {
-        success: true,
-        user: userProfile
-      };
-    } catch (error: any) {
-      console.error('Error during signup:', error.code, error.message);
-      
-      // Handle specific Firebase Auth errors
-      if (error.code === 'auth/email-already-in-use') {
-        return {
-          success: false,
-          error: 'This email is already in use. Try logging in instead.'
-        };
-      } else if (error.code === 'auth/invalid-email') {
-        return {
-          success: false,
-          error: 'Please enter a valid email address.'
-        };
-      } else if (error.code === 'auth/weak-password') {
-        return {
-          success: false,
-          error: 'Password is too weak. It should be at least 6 characters.'
-        };
-      } else if (error.code === 'auth/operation-not-allowed') {
-        return {
-          success: false,
-          error: 'Sign up is currently disabled. Please try again later.'
-        };
-      } else {
-        return {
-          success: false,
-          error: `Sign up failed: ${error.message || 'Unknown error'}`
-        };
-      }
-    }
-  }
-
-  /**
-   * Login with email and password
-   */
-  public async login(credentials: AuthCredentials): Promise<AuthResult> {
-    try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        credentials.email,
-        credentials.password
-      );
-      
-      const user = this.mapFirebaseUserToUser(userCredential.user);
-      this.setCurrentUser(user);
+      this.currentUser = user;
+      this.firebaseUser = firebaseUser;
+      this.isAuthenticated = true;
       
       return {
         success: true,
         user
       };
     } catch (error: any) {
+      let message = 'Registration failed';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'Email already in use';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address';
+      } else if (error.code === 'auth/weak-password') {
+        message = 'Password is too weak';
+      }
+      
       return {
         success: false,
-        message: error.message || 'Invalid email or password'
+        message
       };
     }
   }
 
   /**
-   * Continue as guest (anonymous) user
+   * Login with email and password
    */
-  public async continueAsGuest(): Promise<AuthResult> {
-    // Create a guest user object
-    const guestUser: User = {
-      id: 'guest-' + Math.random().toString(36).substring(2, 9),
-      username: 'Guest User',
-      email: '',
-      roles: ['guest'],
-      isAnonymous: true
-    };
-    
-    this.setCurrentUser(guestUser);
-    
-    return {
-      success: true,
-      user: guestUser
-    };
+  public async login(credentials: LoginCredentials): Promise<AuthResult> {
+    try {
+      const { email, password } = credentials;
+      
+      // Sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      // Get user document from Firestore
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as Omit<User, 'id' | 'createdAt'> & { createdAt: Timestamp };
+        this.currentUser = {
+          id: firebaseUser.uid,
+          ...userData,
+          createdAt: userData.createdAt.toDate()
+        };
+      } else {
+        // This shouldn't normally happen, but if it does, create a new user document
+        const newUser: User = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          roles: ['user'],
+          createdAt: new Date(),
+          profileRanking: 0
+        };
+        
+        await setDoc(doc(db, 'users', firebaseUser.uid), {
+          email: newUser.email,
+          roles: newUser.roles,
+          createdAt: newUser.createdAt,
+          profileRanking: newUser.profileRanking
+        });
+        
+        this.currentUser = newUser;
+      }
+      
+      this.firebaseUser = firebaseUser;
+      this.isAuthenticated = true;
+      
+      return {
+        success: true,
+        user: this.currentUser
+      };
+    } catch (error: any) {
+      let message = 'Login failed';
+      
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        message = 'Invalid email or password';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address';
+      } else if (error.code === 'auth/user-disabled') {
+        message = 'User account has been disabled';
+      }
+      
+      return {
+        success: false,
+        message
+      };
+    }
   }
 
   /**
@@ -238,16 +269,14 @@ export class AuthService {
    */
   public async logout(): Promise<void> {
     try {
-      // Only sign out if not anonymous
-      if (this.currentUser && !this.currentUser.isAnonymous) {
-        await signOut(auth);
-      }
-      
+      await signOut(auth);
       this.currentUser = null;
+      this.firebaseUser = null;
       this.isAuthenticated = false;
-      localStorage.removeItem('celestial_viewer_user');
+      this.notifyAuthStateListeners();
     } catch (error) {
       console.error('Error signing out:', error);
+      throw error;
     }
   }
 
@@ -266,10 +295,30 @@ export class AuthService {
   }
 
   /**
-   * Check if user is a guest
+   * Update user profile
    */
-  public isGuest(): boolean {
-    return this.currentUser?.isAnonymous || false;
+  public async updateUserProfile(userId: string, profileData: Partial<User>): Promise<User> {
+    try {
+      // Exclude id from the data to update
+      const { id, ...dataToUpdate } = profileData;
+      
+      // Update user document in Firestore
+      await updateDoc(doc(db, 'users', userId), dataToUpdate);
+      
+      // Update local user object
+      if (this.currentUser && this.currentUser.id === userId) {
+        this.currentUser = {
+          ...this.currentUser,
+          ...profileData
+        };
+        this.notifyAuthStateListeners();
+      }
+      
+      return this.currentUser!;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
   }
 
   /**
@@ -277,6 +326,57 @@ export class AuthService {
    */
   public hasRole(role: string): boolean {
     return this.currentUser?.roles.includes(role) || false;
+  }
+
+  /**
+   * Get user profile by ID
+   */
+  public async getUserProfile(userId: string): Promise<User | null> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as Omit<User, 'id' | 'createdAt'> & { createdAt: Timestamp };
+        return {
+          id: userId,
+          ...userData,
+          createdAt: userData.createdAt.toDate()
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to user profile updates
+   */
+  public subscribeToUserProfile(userId: string, callback: (user: User | null) => void): () => void {
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', userId),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.data() as Omit<User, 'id' | 'createdAt'> & { createdAt: Timestamp };
+          const user: User = {
+            id: userId,
+            ...userData,
+            createdAt: userData.createdAt.toDate()
+          };
+          callback(user);
+        } else {
+          callback(null);
+        }
+      },
+      (error) => {
+        console.error('Error subscribing to user profile:', error);
+        callback(null);
+      }
+    );
+    
+    return unsubscribe;
   }
 }
 
