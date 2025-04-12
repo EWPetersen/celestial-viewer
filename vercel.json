@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "CI=false SKIP_PREFLIGHT_CHECK=true npm run build",
-  "installCommand": "npm cache clean --force && npm install --force --no-package-lock",
+  "installCommand": "npm install --no-audit --no-fund --no-optional",
   "outputDirectory": "build",
   "framework": "create-react-app",
   "routes": [
