@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "SKIP_PREFLIGHT_CHECK=true react-scripts build",
-  "installCommand": "npm install",
+  "buildCommand": "react-scripts build",
+  "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "build",
   "framework": "create-react-app",
   "routes": [
@@ -15,6 +15,6 @@
     "REACT_APP_TITLE": "Celestial Viewer",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CI": "false",
-    "NODE_ENV": "production"
+    "SKIP_PREFLIGHT_CHECK": "true"
   }
 } 
