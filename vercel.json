@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "CI=false NODE_ENV=production SKIP_PREFLIGHT_CHECK=true npm run build",
-  "installCommand": "npm install --legacy-peer-deps --no-optional",
+  "installCommand": "npm uninstall schema-utils && npm install --legacy-peer-deps --no-optional",
   "outputDirectory": "build",
   "framework": "create-react-app",
   "routes": [
