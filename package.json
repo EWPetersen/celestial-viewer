@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@react-spring/three": "9.7.3",
     "@react-three/drei": "9.88.13",
     "@react-three/fiber": "8.15.11",
     "@testing-library/jest-dom": "5.17.0",
@@ -26,6 +25,10 @@
     "uuid": "9.0.1",
     "web-vitals": "2.1.4",
     "zustand": "4.4.1"
+  },
+  "resolutions": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "overrides": {
     "react": "18.2.0",
