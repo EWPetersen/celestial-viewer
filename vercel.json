@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "CI=false SKIP_PREFLIGHT_CHECK=true npm run build",
-  "installCommand": "npm install --no-audit --no-fund --no-optional",
+  "buildCommand": "CI=false NODE_ENV=production SKIP_PREFLIGHT_CHECK=true npm run build",
+  "installCommand": "npm install --legacy-peer-deps --no-optional",
   "outputDirectory": "build",
   "framework": "create-react-app",
   "routes": [
