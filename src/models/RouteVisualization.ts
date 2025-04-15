@@ -67,6 +67,30 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
     console.log(`[RouteVisualization] Mapped IDs - Origin: ${originId} -> ${systemOriginId}, Dest: ${destinationId} -> ${systemDestinationId}`);
   }
   
+  // Ensure distance value is included for interdiction alerts
+  // This is critical for correct positioning of the alert ping
+  let distanceValue = null;
+  let distanceUnit = 'km' as DistanceUnit;
+  
+  if (alert.type === 'interdiction') {
+    // For interdiction alerts, require distance information
+    if (alert.distanceTraveled !== undefined && alert.distanceTraveled !== null) {
+      distanceValue = alert.distanceTraveled;
+      distanceUnit = alert.distanceUnit || 'km';
+      
+      console.log(`[RouteVisualization] Interdiction alert with distance: ${distanceValue} ${distanceUnit}`);
+    } else {
+      console.warn(`[RouteVisualization] Interdiction alert missing distance: ${alert.id}`);
+      // For alerts with missing distance, use a custom property to signal we want
+      // to position at 50% of the route. StarMap.tsx will handle this special case.
+      alert.useDefaultPosition = true;
+      
+      // We'll still set a default distance value that gets overridden in the render code
+      distanceValue = 0.5;
+      distanceUnit = 'km';
+    }
+  }
+  
   return {
     id: `alert-${alert.id}`,
     originId: systemOriginId,
@@ -76,8 +100,8 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
     pulsing: true,
     alertData: alert,
     pathWidth: 2,
-    distanceValue: alert.distanceTraveled || null,
-    distanceUnit: alert.distanceUnit || 'km',
+    distanceValue: distanceValue,
+    distanceUnit: distanceUnit,
     activityLevel: calculateActivityLevel(alert)
   };
 };

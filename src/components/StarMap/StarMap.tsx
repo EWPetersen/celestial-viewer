@@ -598,16 +598,23 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       // For interdiction alerts, properly position based on distance traveled
       let ratio = 0;
       if (routeType === 'interdiction') {
-        // Calculate distance as a fraction of total route length
-        ratio = Math.min(distanceInMeters / (routeDistance || 1), 1.0);
-        
-        // Add some basic validation to ensure ratio is valid
-        if (isNaN(ratio) || !isFinite(ratio)) {
-          console.warn(`[StarMap] Invalid ratio calculated for alert position: ${ratio}, using default 0.5`);
-          ratio = 0.5; // Use a default mid-point
+        // Check if the alert has the special useDefaultPosition flag
+        if (visualization.alertData?.useDefaultPosition) {
+          // Use midpoint as default position
+          ratio = 0.5;
+          console.log(`[StarMap] Using default position (50%) for interdiction alert: ${visualization.id}`);
+        } else {
+          // Calculate distance as a fraction of total route length
+          ratio = Math.min(distanceInMeters / (routeDistance || 1), 1.0);
+          
+          // Add some basic validation to ensure ratio is valid
+          if (isNaN(ratio) || !isFinite(ratio)) {
+            console.warn(`[StarMap] Invalid ratio calculated for alert position: ${ratio}, using default 0.5`);
+            ratio = 0.5; // Use a default mid-point
+          }
+          
+          console.log(`[StarMap] Positioning interdiction alert at distance ${visualization.distanceValue} ${visualization.distanceUnit} (ratio: ${ratio.toFixed(2)}) of total distance ${(routeDistance / 1000).toFixed(1)}km`);
         }
-        
-        console.log(`[StarMap] Positioning interdiction alert at distance ${visualization.distanceValue} ${visualization.distanceUnit} (ratio: ${ratio.toFixed(2)}) of total distance ${(routeDistance / 1000).toFixed(1)}km`);
       } else {
         // For other alert types, use midpoint if no specific position
         ratio = 0.5;

@@ -162,60 +162,95 @@ export class RouteAlertService {
   
   /**
    * Create a new route alert
+   * @param alertData Alert data to create
+   * @returns Created alert
    */
-  public async createAlert(alertData: Omit<RouteAlert, 'id' | 'timestamp' | 'authorId' | 'confirmations' | 'disputes' | 'safetyScore' | 'lastActivity'>): Promise<RouteAlert> {
+  public async createAlert(alertData: any): Promise<RouteAlert> {
     try {
-      const currentUser = AuthService.getCurrentUser();
-      
-      if (!currentUser) {
-        throw new Error('User must be authenticated to create an alert');
+      // Get the current user
+      const user = await AuthService.getCurrentUser();
+      if (!user) {
+        throw new Error('User must be authenticated to create alerts');
       }
       
-      // Fix for PvP alerts: ensure all required fields have valid values
-      // Use undefined instead of null to match the RouteAlert type
-      const cleanedData = {
-        ...alertData,
-        // For PvP alerts, ensure we remove null values for Firestore
-        // and use undefined which matches the RouteAlert type
-        distanceTraveled: alertData.distanceTraveled === null ? undefined : alertData.distanceTraveled,
-        distanceUnit: alertData.distanceUnit === null ? undefined : alertData.distanceUnit
-      };
+      // Generate a unique ID for the alert
+      const alertId = uuidv4();
       
-      console.log('Creating alert with cleaned data:', cleanedData);
+      // Pre-record the celestial ID mappings for this alert to ensure
+      // proper visualization without refresh needed
+      if (alertData.originId) {
+        const originName = this.getCelestialNameById(alertData.originId);
+        if (originName) {
+          CelestialIdMappingService.addAlertIdMapping(alertData.originId, originName);
+          console.log(`[RouteAlertService] Pre-mapped origin ID: ${alertData.originId} -> ${originName}`);
+        }
+      }
       
-      const newAlert: Omit<RouteAlert, 'id'> = {
-        ...cleanedData,
-        authorId: currentUser.id,
-        authorName: currentUser.username || currentUser.email,
-        timestamp: new Date(),
-        lastActivity: new Date(),
+      if (alertData.destinationId) {
+        const destName = this.getCelestialNameById(alertData.destinationId);
+        if (destName) {
+          CelestialIdMappingService.addAlertIdMapping(alertData.destinationId, destName);
+          console.log(`[RouteAlertService] Pre-mapped destination ID: ${alertData.destinationId} -> ${destName}`);
+        }
+      }
+      
+      if (alertData.locationId && alertData.locationId !== alertData.destinationId) {
+        const locName = this.getCelestialNameById(alertData.locationId);
+        if (locName) {
+          CelestialIdMappingService.addAlertIdMapping(alertData.locationId, locName);
+          console.log(`[RouteAlertService] Pre-mapped location ID: ${alertData.locationId} -> ${locName}`);
+        }
+      }
+      
+      // Create a new alert object
+      const alert: RouteAlert = {
+        id: alertId,
+        type: alertData.type,
+        region: alertData.region,
+        shard: alertData.shard,
+        originId: alertData.originId || '',
+        destinationId: alertData.destinationId || '',
+        locationId: alertData.locationId || '',
+        distanceTraveled: alertData.distanceTraveled,
+        distanceUnit: alertData.distanceUnit,
+        authorId: user.id || '',
+        authorName: user.username || 'Anonymous',
         confirmations: 0,
         disputes: 0,
-        safetyScore: 50 // Default neutral score
+        timestamp: new Date(),
+        lastActivity: new Date(),
+        safetyScore: 50
       };
       
-      // Convert undefined values to null for Firestore
-      // as Firestore doesn't accept undefined values
-      const firestoreData = Object.fromEntries(
-        Object.entries(newAlert).map(([key, value]) => 
-          [key, value === undefined ? null : value]
-        )
-      );
-      
-      const docRef = await addDoc(collection(db, 'routeAlerts'), {
-        ...firestoreData,
+      // Add alert to the database
+      const alertRef = await addDoc(collection(db, 'alerts'), {
+        ...alert,
         timestamp: serverTimestamp(),
         lastActivity: serverTimestamp()
       });
       
-      const alert = { id: docRef.id, ...newAlert };
-      this.alertsCache.set(docRef.id, alert);
+      // Get the created alert from the database to ensure we have the correct timestamps
+      const alertSnapshot = await getDoc(alertRef);
       
-      this.processAlertMappings(alert);
-      
-      return alert;
+      if (alertSnapshot.exists()) {
+        // Convert the document to an alert object
+        const data = alertSnapshot.data();
+        const createdAlert: RouteAlert = {
+          id: alertSnapshot.id,
+          ...data,
+          timestamp: data.timestamp ? new Date(data.timestamp.toDate()) : new Date(),
+          lastActivity: data.lastActivity ? new Date(data.lastActivity.toDate()) : new Date()
+        } as RouteAlert;
+        
+        // Add celestial mappings for the newly created alert
+        this.addCelestialMappingsForAlert(createdAlert);
+        
+        return createdAlert;
+      } else {
+        throw new Error('Failed to retrieve created alert');
+      }
     } catch (error) {
-      console.error('Error creating route alert:', error);
+      console.error('Error creating alert:', error);
       throw error;
     }
   }
