@@ -4,7 +4,7 @@ import { AuthContext } from '../../App';
 import RouteAlertService from '../../services/RouteAlertService';
 import { RouteAlert, AlertType, Region, isAlertActive, formatDistance } from '../../models/RouteAlert';
 import DataLoader from '../../services/DataLoaderService';
-import CelestialIdMappingService from '../../services/CelestialIdMappingService';
+import CelestialIdMappingService, { CelestialIdMappingService as CelestialIdMappingServiceClass } from '../../services/CelestialIdMappingService';
 import { createAlertVisualization } from '../../models/RouteVisualization';
 import useAppStore from '../../stores/useAppStore';
 import './AlertList.css';
@@ -120,8 +120,9 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
       try {
         console.log("[AlertList] Initializing celestial mapping service...");
         
-        // Initialize common ID mappings first
-        CelestialIdMappingService.initializeCommonMappings();
+        // Initialize the service properly using the static method on the class
+        const idMappingService = CelestialIdMappingServiceClass.getInstance();
+        idMappingService.initialize();
         
         // Load celestial data for name resolution
         const celestialData = await DataLoader.loadCelestialSystem();
@@ -681,10 +682,53 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
       'd6fc1705-6aba-4dbe-ba24-1ea80cb8d00d': 'microTech',
       'd191779b-ac62-4c84-90a5-7721aefb97c4': 'Hurston Area',
       'b3557a17-1d2d-4b7b-92ef-5e20445b10ea': 'MicroTech Orbit',
-      '8e38ba99-f1cd-49df-bc4e-5ef9309b511f': 'ArcCorp City'
+      '8e38ba99-f1cd-49df-bc4e-5ef9309b511f': 'ArcCorp City',
+      
+      // Add IDs from console logs
+      '3cbf39d0-a393-4c41-83c8-86561962e36b': 'Hurston',
+      '90c3c7dc-02df-4f30-851c-dfb1a8876998': 'ArcCorp',
+      
+      // Handle shortened IDs that are showing in the UI
+      '3cbf39d0': 'Hurston',
+      '90c3c7dc': 'ArcCorp',
+      '52a77839': 'Hurston',
+      '20f3f4d3': 'Crusader',
+      'd6fc1705': 'microTech',
+      '8af309da': 'Stanton',
+      'a6e9252e': 'ArcCorp',
+      'd191779b': 'Hurston Area',
+      'b3557a17': 'MicroTech Orbit',
+      '8e38ba99': 'ArcCorp City'
     };
     
-    // Check our direct emergency mapping first - without state updates
+    // First check for short IDs (8 characters)
+    if (id.length === 8 && /^[0-9a-f]{8}$/i.test(id)) {
+      // Check our direct emergency mapping first
+      if (knownUuidMappings[id]) {
+        console.log(`🔍 SHORT ID MAPPING: ${id} → hardcoded to → ${knownUuidMappings[id]}`);
+        return knownUuidMappings[id];
+      }
+      
+      // Try to match against full UUID entries in our mapping
+      for (const [fullId, name] of Object.entries(knownUuidMappings)) {
+        if (fullId.startsWith(id)) {
+          console.log(`🔍 SHORT ID PATTERN MATCH: ${id} matches prefix of ${fullId} → ${name}`);
+          return name;
+        }
+      }
+      
+      // Try service before returning formatted ID
+      const serviceName = CelestialIdMappingService.getNameFromId(id);
+      if (serviceName !== id) {
+        console.log(`🔍 SERVICE RESOLVED SHORT ID: ${id} → ${serviceName}`);
+        return serviceName;
+      }
+      
+      console.log(`⚠️ Unresolved short ID: ${id}`);
+      return `ID:${id}`;
+    }
+    
+    // Check our direct emergency mapping for full IDs
     if (knownUuidMappings[id]) {
       // Log what we're doing (logging doesn't cause re-renders)
       console.log(`🔍 EMERGENCY MAPPING: ${id} → hardcoded to → ${knownUuidMappings[id]}`);
@@ -709,7 +753,30 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
       return extractedName;
     }
     
-    // No name resolution available, return ID
+    // For shortened IDs in the format of first 8 chars of UUID
+    if (id.length === 8 && /^[0-9a-f]{8}$/i.test(id)) {
+      console.log(`Short ID detected: ${id}, attempting to find in mapping service`);
+      
+      // Use the static method on the class
+      for (const fullId of CelestialIdMappingServiceClass.getAllStoredIds()) {
+        if (fullId.startsWith(id)) {
+          const name = CelestialIdMappingService.getNameFromId(fullId);
+          if (name !== fullId) {
+            console.log(`Found match for short ID ${id} → ${fullId} → ${name}`);
+            return name;
+          }
+        }
+      }
+      
+      // Return formatted short ID if no mapping found
+      return `ID:${id}`;
+    }
+    
+    // No name resolution available, return formatted ID
+    if (id.length > 8) {
+      return `ID:${id.substring(0, 8)}`;
+    }
+    
     return id;
   }, [directNameMap, tryExtractNameFromId]);
   
