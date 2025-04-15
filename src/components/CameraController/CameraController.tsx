@@ -264,8 +264,8 @@ const CameraController: React.FC<CameraControllerProps> = ({
       // --- Minimum Distance Check Logic --- 
       let calculatedDistance = (targetDiameter * 0.5) / Math.tan(fovRad * 0.5);
       // Use the foundEntityType determined earlier
-      const isPointLike = ['poi', 'jumpPoint', 'lagrangepoint'].includes(foundEntityType); 
-      const isDetailViewType = ['moon', 'station', 'outpost', 'reststop', 'landingzone', 'commarray', 'jumpPoint'].includes(foundEntityType);
+      const isPointLike = ['poi', 'jumpPoint', 'lagrangepoint', 'station', 'outpost', 'reststop', 'landingzone', 'commarray'].includes(foundEntityType); 
+      const isDetailViewType = ['moon', 'station', 'outpost', 'reststop', 'landingzone', 'commarray', 'jumpPoint', 'lagrangepoint'].includes(foundEntityType);
 
       if (isDetailViewType) {
         
@@ -273,6 +273,15 @@ const CameraController: React.FC<CameraControllerProps> = ({
         if (foundEntityType === 'moon') {
           // Reduce the calculated distance for moons by 80% to get much closer
           calculatedDistance *= 0.2;
+        } 
+        // Special treatment for Lagrange points and jump points - use same distance as moons
+        else if (foundEntityType === 'lagrangepoint' || foundEntityType === 'jumpPoint') {
+          // Use the same distance calculation as moons for closer view
+          calculatedDistance *= 0.2; // Same reduction as moons (80%)
+        }
+        // Special treatment for stations, outposts and rest stops
+        else if (['station', 'outpost', 'reststop', 'landingzone', 'commarray'].includes(foundEntityType)) {
+          calculatedDistance = MIN_DETAIL_FOCUS_DISTANCE * 2;
         }
         
         if (calculatedDistance < MIN_DETAIL_FOCUS_DISTANCE) {
@@ -295,7 +304,12 @@ const CameraController: React.FC<CameraControllerProps> = ({
         if (foundEntityType === 'moon') {
           // For moons, use an even more dramatic angle to better see the surface
           offsetDirection = new THREE.Vector3(0.7, 0.4, 0.6).normalize();
-        } else {
+        } 
+        else if (foundEntityType === 'lagrangepoint' || foundEntityType === 'jumpPoint') {
+          // For lagrange points and jump points, use a more side-angled view
+          offsetDirection = new THREE.Vector3(0.6, 0.5, 0.8).normalize();
+        }
+        else {
           // For other stations/POIs, use the standard detail view angle
           offsetDirection = new THREE.Vector3(0.5, 0.3, 1).normalize();
         }

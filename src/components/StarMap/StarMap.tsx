@@ -241,6 +241,7 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
   const particlesGroupRef = useRef<THREE.Group>(null);
   const lineGroupRef = useRef<THREE.Group>(null);
   const plumeGroupRef = useRef<THREE.Group>(null);
+  const chevronsGroupRef = useRef<THREE.Group>(null);
   
   // Track whether we've logged an error for this visualization to prevent duplicate logs
   const hasLoggedErrorRef = useRef(false);
@@ -250,9 +251,11 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
   const [destinationPosition, setDestinationPosition] = useState<THREE.Vector3 | null>(null);
   
   // Animation settings
-  const PARTICLES_COUNT = 50;
-  const ANIMATION_SPEED = 0.5;
-  const CAMERA_ANIMATION_SPEED = 0.4;
+  const PARTICLES_COUNT = 5; // Reduced from 15 to just a few particles
+  const CHEVRON_COUNT = 12;
+  // Slow down animation by orders of magnitude
+  const ANIMATION_SPEED = 0.3; // Reduced from original value for slower animation
+  const CAMERA_ANIMATION_SPEED = 0.008; // Reduced from 0.08
   
   const { camera, scene, clock } = useThree();
   
@@ -540,7 +543,7 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       // Create multiple particles along the path
       for (let i = 0; i < PARTICLES_COUNT; i++) {
         // Create particle geometry
-        const particleGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+        const particleGeometry = new THREE.SphereGeometry(0.04, 8, 8); // Larger size (0.04 instead of 0.02)
         const particleMaterial = new THREE.MeshBasicMaterial({
           color: new THREE.Color('#80dfff'),
           transparent: true,
@@ -550,34 +553,32 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
         
         const particle = new THREE.Mesh(particleGeometry, particleMaterial.clone());
         
-        // Set random initial position along the path
-        const initialT = Math.random();
+        // Set evenly spaced initial positions along the path
+        const initialT = i / PARTICLES_COUNT; // Evenly spaced instead of random
         const position = straightPath.getPoint(initialT);
         particle.position.copy(position);
         
         // Store speed and initial offset for animation
         particle.userData = {
-          speed: 0.2 + Math.random() * 0.3,
+          speed: 0.2 + Math.random() * 0.1, // Less random speed for more consistent spacing
           offset: initialT,
-          baseSize: 0.02,
-          glowSize: 0.05
+          baseSize: 0.04, // Increased from 0.02
+          glowSize: 0.08  // Increased from 0.05
         };
         
         particlesGroupRef.current.add(particle);
         
-        // Add a glow effect for larger particles
-        if (i % 3 === 0) {
-          const glowGeometry = new THREE.SphereGeometry(0.05, 8, 8);
-          const glowMaterial = new THREE.MeshBasicMaterial({
-            color: new THREE.Color('#ffffff'),
-            transparent: true,
-            opacity: 0,
-            depthTest: false
-          });
-          
-          const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
-          particle.add(glowSphere);
-        }
+        // Add a glow effect to all particles (not just every 3rd)
+        const glowGeometry = new THREE.SphereGeometry(0.1, 8, 8); // Larger glow (0.1 instead of 0.05)
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          color: new THREE.Color('#ffffff'),
+          transparent: true,
+          opacity: 0,
+          depthTest: false
+        });
+        
+        const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+        particle.add(glowSphere);
       }
     }
     
@@ -650,6 +651,83 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       plumeGroupRef.current.visible = false;
     }
     
+    // Generate chevron objects along the path
+    if (chevronsGroupRef.current && straightPath) {
+      // Clear any existing chevrons
+      while (chevronsGroupRef.current.children.length > 0) {
+        chevronsGroupRef.current.remove(chevronsGroupRef.current.children[0]);
+      }
+      
+      const direction = new THREE.Vector3().subVectors(destinationPos, originPos).normalize();
+      
+      // Create chevrons along the path
+      for (let i = 0; i < CHEVRON_COUNT; i++) {
+        // Create a chevron shape
+        const chevronGroup = new THREE.Group();
+        
+        // Create the chevron geometry (arrow shape)
+        const chevronGeometry = new THREE.BufferGeometry();
+        
+        // Create chevron shape - an arrow pointing forward
+        const chevronSize = 0.1;
+        const vertices = new Float32Array([
+          -chevronSize, -chevronSize/2, 0,  // bottom left
+          0, chevronSize/2, 0,              // top middle
+          chevronSize, -chevronSize/2, 0,   // bottom right
+          -chevronSize, -chevronSize/2, 0,  // back to bottom left (close shape)
+        ]);
+        
+        chevronGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        
+        // Create chevron material
+        const chevronMaterial = new THREE.LineBasicMaterial({
+          color: new THREE.Color('#4cc9f0'),
+          transparent: true,
+          opacity: 0,
+          depthTest: false,
+          linewidth: 2
+        });
+        
+        // Create the chevron line
+        const chevron = new THREE.Line(chevronGeometry, chevronMaterial);
+        
+        // Set initial position along the path
+        const initialT = i / CHEVRON_COUNT; // Evenly spaced
+        const position = straightPath.getPoint(initialT);
+        chevron.position.copy(position);
+        
+        // Orient to face the direction of travel
+        chevron.lookAt(chevron.position.clone().add(direction));
+        
+        // Rotate 90 degrees to point along the path
+        chevron.rotateX(Math.PI / 2);
+        
+        // Store animation speed and offset for later use
+        chevron.userData = {
+          speed: 0.15,
+          offset: initialT,
+          baseOpacity: 0.85
+        };
+        
+        // Add a glow effect
+        const glowGeometry = chevronGeometry.clone();
+        const glowMaterial = new THREE.LineBasicMaterial({
+          color: new THREE.Color('#80dfff'),
+          transparent: true,
+          opacity: 0,
+          depthTest: false,
+          linewidth: 3
+        });
+        
+        const glowChevron = new THREE.Line(glowGeometry, glowMaterial);
+        glowChevron.scale.set(1.4, 1.4, 1.4);
+        
+        chevron.add(glowChevron);
+        chevronGroup.add(chevron);
+        chevronsGroupRef.current.add(chevronGroup);
+      }
+    }
+    
     // Clean up animation on unmount
     return () => {
       initializedRef.current = false;
@@ -657,7 +735,23 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
   }, [visualization, celestialSystem, camera, updatePlumeSize, updatePlumeColor, selectCelestialBody]);
   
   // Handle animations in the main frame loop
-  useFrame((state, delta) => {
+  useFrame(({ clock }, delta) => {
+    // Only run animation when route is displayed and we have data
+    if (!visualization || !visualization.originId || !visualization.destinationId) return;
+
+    // Update line visibility based on whether we're using chevrons
+    if (lineGroupRef.current) {
+      lineGroupRef.current.visible = true; // Always show the line
+    }
+    
+    // Chevrons visibility - hide them since we're using line instead
+    if (chevronsGroupRef.current) {
+      chevronsGroupRef.current.visible = false;
+    }
+    
+    // Update global animation progress for fading effects (slow this down too)
+    progressRef.current = Math.min(1, progressRef.current + delta * ANIMATION_SPEED);
+    
     // First time initialization
     if (!initializedRef.current && visualization) {
       initializedRef.current = true;
@@ -697,7 +791,7 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
             }
             
             // Scale base on animation and pulse
-            const baseSize = particle.userData.baseSize || 0.02;
+            const baseSize = particle.userData.baseSize || 0.04;
             const particleSize = baseSize * (0.8 + pulseEffect * 0.4);
             particle.scale.set(particleSize, particleSize, particleSize);
             
@@ -713,30 +807,73 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
             }
           }
         });
-        
-        // Update global animation progress for fading effects
-        progressRef.current = Math.min(1, progressRef.current + delta * ANIMATION_SPEED);
       }
       
-      // Update path line materials based on progress
-      if (lineGroupRef.current && progressRef.current < 1.0) {
-        lineGroupRef.current.children.forEach((child, index) => {
-          if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-            // Adjust opacity based on line type and progress
-            if (index === 0) { // Main line
-              child.material.opacity = 0.95 * progressRef.current;
-            } else if (index === 1) { // Glow line
-              child.material.opacity = 0.6 * progressRef.current;
-            } else if (index === 2) { // Core line
-              child.material.opacity = 0.8 * progressRef.current;
+      // Animate chevrons along the path
+      if (chevronsGroupRef.current && splinePath) {
+        chevronsGroupRef.current.children.forEach((chevronGroup, i) => {
+          if (chevronGroup instanceof THREE.Group && chevronGroup.children.length > 0) {
+            const chevron = chevronGroup.children[0] as THREE.Line;
+            
+            if (chevron) {
+              // Get chevron data
+              const { speed, offset, baseOpacity } = chevron.userData;
+              
+              // Calculate current position along the path (0-1)
+              const time = (animationTimeRef.current * speed * ANIMATION_SPEED + offset) % 1;
+              
+              // Position chevron along the curve
+              const position = splinePath.getPoint(time);
+              chevron.position.copy(position);
+              
+              // Calculate direction at this point for proper orientation
+              const tangent = splinePath.getTangent(time);
+              
+              // Orient chevron to face along the path
+              chevron.lookAt(chevron.position.clone().add(tangent));
+              
+              // Rotate 90 degrees to point along the path
+              chevron.rotation.x = Math.PI / 2;
+              
+              // Fade in during first 20% of animation
+              const fadeInProgress = Math.min(1, progressRef.current * 5);
+              
+              // Pulse effect
+              const pulseEffect = Math.sin(animationTimeRef.current * 2 + i * 0.5) * 0.2 + 0.8;
+              
+              // Apply opacity based on animation progress
+              if (chevron.material instanceof THREE.LineBasicMaterial) {
+                chevron.material.opacity = fadeInProgress * baseOpacity * pulseEffect;
+              }
+              
+              // Handle glow effect
+              if (chevron.children.length > 0) {
+                const glowChevron = chevron.children[0] as THREE.Line;
+                if (glowChevron.material instanceof THREE.LineBasicMaterial) {
+                  glowChevron.material.opacity = fadeInProgress * 0.6 * pulseEffect;
+                }
+              }
             }
           }
         });
       }
       
+      // Update line visibility based on whether we're using chevrons
+      if (lineGroupRef.current) {
+        lineGroupRef.current.visible = true; // Show the line instead of hiding it
+      }
+      
+      // Chevrons visibility - hide them since we're using line instead
+      if (chevronsGroupRef.current) {
+        chevronsGroupRef.current.visible = false;
+      }
+      
+      // Update global animation progress for fading effects (slow this down too)
+      progressRef.current = Math.min(1, progressRef.current + delta * ANIMATION_SPEED);
+      
       // Camera animation along the route if requested
       if (visualization.animate && cameraProgressRef.current < 1.0) {
-        // Update camera progress
+        // Update camera progress (slowed down)
         cameraProgressRef.current = Math.min(cameraProgressRef.current + delta * CAMERA_ANIMATION_SPEED, 1.0);
         
         // Handle camera movement
@@ -769,44 +906,9 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
           }
         } else if (cameraProgressRef.current >= 1.0 && visualization.destinationId) {
           // Only select the destination if we know it exists already
-          // Since we've already verified destinationBody exists earlier, we can just use it directly
           console.log("Camera animation complete, selecting destination:", visualization.destinationId);
           selectCelestialBody(visualization.destinationId);
         }
-      }
-      
-      // Update plume animation effects
-      if (plumeGroupRef.current && plumeGroupRef.current.visible && 
-          visualization.distanceValue !== null && visualization.distanceValue !== undefined) {        
-        // Update plume size based on camera distance
-        const distance = camera.position.distanceTo(plumeGroupRef.current.position);
-        updatePlumeSize(
-          distance, 
-          visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5
-        );
-        
-        // Animate pulse effects on plume
-        const pulseTime = animationTimeRef.current * 3;
-        plumeGroupRef.current.children.forEach((child, i) => {
-          if (child.name === 'pulse' && child instanceof THREE.Mesh) {
-            // Calculate pulse scale using sine wave
-            const pulseScale = 1 + 0.3 * Math.sin(pulseTime + i * 1.5);
-            child.scale.set(pulseScale, pulseScale, pulseScale);
-            
-            // Adjust opacity with the pulse
-            if (child.material instanceof THREE.MeshBasicMaterial) {
-              child.material.opacity = 0.3 + 0.2 * Math.sin(pulseTime * 0.5 + i);
-            }
-          }
-        });
-        
-        // Rotate the plume decorative elements for effect
-        plumeGroupRef.current.children.forEach(child => {
-          if (child.name === 'rotator') {
-            child.rotation.y += delta * 0.5;
-            child.rotation.z += delta * 0.3;
-          }
-        });
       }
     }
   });
@@ -820,9 +922,12 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       {/* Particles Group for flowing particles along the route */}
       <group ref={particlesGroupRef} />
       
-      {/* Holographic Route Path */}
+      {/* Chevrons Group for directional indicators */}
+      <group ref={chevronsGroupRef} />
+      
+      {/* Holographic Route Path (now visible in favor of chevrons) */}
       {pathPoints.length > 0 && (
-        <group ref={lineGroupRef}>
+        <group ref={lineGroupRef} visible={true}>
           {/* Main route line */}
           <line>
             <bufferGeometry attach="geometry">
@@ -834,14 +939,14 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
             <lineBasicMaterial 
               attach="material"
               color="#4cc9f0" 
-              opacity={0.0} // Start transparent, animation will handle opacity
+              opacity={0.8} // Higher opacity for visibility
               transparent={true}
               linewidth={pathWidth}
               depthTest={false}
             />
           </line>
           
-          {/* Secondary glow line */}
+          {/* Enhanced outer glow line */}
           <line>
             <bufferGeometry attach="geometry">
               <float32BufferAttribute 
@@ -852,9 +957,9 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
             <lineBasicMaterial 
               attach="material"
               color="#80dfff" 
-              opacity={0.0} // Start transparent, animation will handle opacity
+              opacity={0.6} // Higher opacity for visibility
               transparent={true}
-              linewidth={pathWidth * 2.0}
+              linewidth={pathWidth * 2.5}
               depthTest={false}
             />
           </line>
@@ -870,9 +975,27 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
             <lineBasicMaterial 
               attach="material"
               color="#ffffff" 
-              opacity={0.0} // Start transparent, animation will handle opacity
+              opacity={0.9} // Higher opacity for visibility
               transparent={true}
-              linewidth={pathWidth * 0.5}
+              linewidth={pathWidth * 0.6}
+              depthTest={false}
+            />
+          </line>
+          
+          {/* Extra wide faint outer glow for enhanced effect */}
+          <line>
+            <bufferGeometry attach="geometry">
+              <float32BufferAttribute 
+                attach="attributes-position" 
+                args={[new Float32Array(pathPoints.flatMap(p => [p.x, p.y, p.z])), 3]} 
+              />
+            </bufferGeometry>
+            <lineBasicMaterial 
+              attach="material"
+              color="#4cc9f0" 
+              opacity={0.2} // Low opacity for subtle glow effect
+              transparent={true}
+              linewidth={pathWidth * 4.0}
               depthTest={false}
             />
           </line>
@@ -924,70 +1047,48 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
         />
         
         {/* Pulse animation spheres */}
-        {Array.from({ length: 4 }).map((_, i) => (
-          <mesh key={i} name="pulse">
-            <sphereGeometry args={[0.15 + i * 0.05, 12, 12]} />
-            <meshBasicMaterial 
-              color="#ff3300"
-              transparent={true}
-              opacity={0.25 - i * 0.05}
-              depthTest={false}
-            />
-          </mesh>
-        ))}
+        <mesh name="pulse">
+          <sphereGeometry args={[0.4, 16, 16]} />
+          <meshBasicMaterial 
+            color="#ff7700"
+            transparent={true}
+            opacity={0.2}
+            depthTest={false}
+          />
+        </mesh>
+        
+        <mesh name="pulse" position={[0, 0, 0]}>
+          <sphereGeometry args={[0.5, 12, 12]} />
+          <meshBasicMaterial 
+            color="#ff9900"
+            transparent={true}
+            opacity={0.15}
+            depthTest={false}
+          />
+        </mesh>
         
         {/* Decorative rotating elements */}
         <group name="rotator">
-          {/* Rings */}
-          <mesh rotation={[Math.PI/2, 0, 0]}>
-            <torusGeometry args={[0.25, 0.02, 8, 24]} />
+          <mesh rotation={[0, 0, Math.PI/4]} position={[0, 0, 0]}>
+            <torusGeometry args={[0.25, 0.03, 8, 16]} />
             <meshBasicMaterial 
-              color="#ff4400" 
+              color="#ff7700"
               transparent={true}
-              opacity={0.5}
+              opacity={0.3}
               depthTest={false}
             />
           </mesh>
           
-          <mesh rotation={[0, Math.PI/2, Math.PI/4]}>
-            <torusGeometry args={[0.22, 0.01, 8, 20]} />
+          <mesh rotation={[Math.PI/2, 0, 0]} position={[0, 0, 0]}>
+            <torusGeometry args={[0.2, 0.02, 8, 16]} />
             <meshBasicMaterial 
-              color="#ff2200" 
+              color="#ff5500"
               transparent={true}
               opacity={0.4}
               depthTest={false}
             />
           </mesh>
         </group>
-        
-        {/* Direction indicators */}
-        <mesh rotation={[0, 0, Math.PI/2]}>
-          <coneGeometry args={[0.06, 0.15, 8]} />
-          <meshBasicMaterial 
-            color="#ffffff"
-            transparent={true}
-            opacity={0.7}
-            depthTest={false}
-          />
-        </mesh>
-        
-        {/* Small warning beacons */}
-        {Array.from({ length: 4 }).map((_, i) => {
-          const angle = (i / 4) * Math.PI * 2;
-          return (
-            <pointLight 
-              key={i}
-              position={[
-                Math.cos(angle) * 0.25,
-                Math.sin(angle) * 0.25,
-                0
-              ]}
-              distance={0.5}
-              intensity={5}
-              color="#ff0000"
-            />
-          );
-        })}
       </group>
     </group>
   );
@@ -1891,7 +1992,26 @@ const StarMap: React.FC = () => {
   
   // New callbacks for focus/reset to pass to SceneControls
   const handleFocusEntity = (entityId: string) => {
-    selectCelestialBody(entityId); // Select first - CameraController will react
+    if (!entityId || !celestialSystem) return;
+    
+    // Determine the entity type and select the appropriate one
+    const entity = celestialSystem.celestialBodies.find(e => e.id === entityId) ||
+                  celestialSystem.jumpPoints.find(e => e.id === entityId) ||
+                  celestialSystem.pointsOfInterest.find(e => e.id === entityId);
+    
+    if (entity) {
+      if ('type' in entity && entity.type === 'jumppoint') {
+        // It's a jump point
+        useAppStore.getState().selectJumpPoint(entityId);
+      } else if ('type' in entity && 
+          ['station', 'outpost', 'reststop', 'lagrangepoint', 'landingzone', 'commarray'].includes(entity.type as string)) {
+        // It's a point of interest
+        useAppStore.getState().selectPointOfInterest(entityId);
+      } else {
+        // Default to celestial body
+        selectCelestialBody(entityId);
+      }
+    }
   };
 
   const handleResetView = () => {

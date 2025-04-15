@@ -32,7 +32,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
   cameraPosition,
   cameraTarget
 }) => {
-  const { celestialSystem, selectedCelestialBodyId, selectCelestialBody } = useAppStore();
+  const { celestialSystem, selectedCelestialBodyId, selectCelestialBody, selectedPointOfInterestId, selectPointOfInterest, selectedJumpPointId, selectJumpPoint } = useAppStore();
   const [hiddenTypes, setHiddenTypes] = useState<Set<EntityType>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -40,10 +40,32 @@ const SceneControls: React.FC<SceneControlsProps> = ({
 
   // Define all callbacks at the top level
   const handleFocusEntity = useCallback((entityId: string) => {
+    if (!entityId) return; // Skip empty selections
+    
+    // Determine the entity type and select the appropriate one
+    if (celestialSystem) {
+      const entity = celestialSystem.celestialBodies.find(e => e.id === entityId) ||
+                    celestialSystem.jumpPoints.find(e => e.id === entityId) ||
+                    celestialSystem.pointsOfInterest.find(e => e.id === entityId);
+      
+      if (entity) {
+        if ('type' in entity && entity.type === 'jumppoint') {
+          // It's a jump point
+          selectJumpPoint(entityId);
+        } else if ('type' in entity && ['station', 'outpost', 'reststop', 'lagrangepoint', 'landingzone', 'commarray'].includes(entity.type as string)) {
+          // It's a point of interest
+          selectPointOfInterest(entityId);
+        } else {
+          // Default to celestial body
+          selectCelestialBody(entityId);
+        }
+      }
+    }
+    
     if (onFocusEntity) {
       onFocusEntity(entityId);
     }
-  }, [onFocusEntity]);
+  }, [onFocusEntity, celestialSystem, selectJumpPoint, selectPointOfInterest, selectCelestialBody]);
 
   const handleFilterChange = useCallback((type: EntityType) => {
     setHiddenTypes(prev => {
@@ -238,7 +260,7 @@ const SceneControls: React.FC<SceneControlsProps> = ({
             <select 
               id="entity-select" 
               style={selectStyle}
-              value={selectedCelestialBodyId || ''}
+              value={selectedCelestialBodyId || selectedPointOfInterestId || selectedJumpPointId || ''}
               onChange={(e) => handleFocusEntity(e.target.value)}
             >
               <option value="">-- Select Entity --</option>
