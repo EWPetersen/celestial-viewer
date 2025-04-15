@@ -5,6 +5,8 @@ import RouteAlertService from '../../services/RouteAlertService';
 import { RouteAlert, AlertType, Region, isAlertActive, formatDistance } from '../../models/RouteAlert';
 import DataLoader from '../../services/DataLoaderService';
 import CelestialIdMappingService from '../../services/CelestialIdMappingService';
+import { createAlertVisualization } from '../../models/RouteVisualization';
+import useAppStore from '../../stores/useAppStore';
 import './AlertList.css';
 
 // Debug logger
@@ -20,11 +22,14 @@ interface AlertListProps {
 
 const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
   const { isAuthenticated } = useContext(AuthContext);
+  const { removeRouteVisualization, addRouteVisualization } = useAppStore();
   const [alerts, setAlerts] = useState<RouteAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<AlertType | 'all'>('all');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<RouteAlert | null>(null);
+  const [showAlertModal, setShowAlertModal] = useState(false);
   
   // Local cache for direct celestial name mappings
   const [directNameMap, setDirectNameMap] = useState<Record<string, string>>({});
@@ -114,6 +119,10 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     const loadNameMapping = async () => {
       try {
         console.log("[AlertList] Initializing celestial mapping service...");
+        
+        // Initialize common ID mappings first
+        CelestialIdMappingService.initializeCommonMappings();
+        
         // Load celestial data for name resolution
         const celestialData = await DataLoader.loadCelestialSystem();
         
@@ -148,6 +157,9 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
           log("Created celestial name mapping with", Object.keys(directNameMap).length, "entries");
           console.log("[AlertList] Mapping service initialized successfully with", 
                     Object.keys(directNameMap).length, "direct mappings");
+          
+          // Log the full mapping for debugging
+          console.log("[AlertList] Full mapping:", directNameMap);
         }
       } catch (err) {
         console.error("[AlertList] Error loading celestial name mapping:", err);
@@ -166,29 +178,100 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     };
   }, []);
   
+  // Function to try to extract a meaningful name from an ID string
+  const tryExtractNameFromId = (id: string): string | null => {
+    if (!id) return null;
+    
+    // Common celestial body names with their proper capitalization
+    const celestialNameMap = {
+      'stanton': 'Stanton',
+      'hurston': 'Hurston',
+      'crusader': 'Crusader',
+      'arccorp': 'ArcCorp', 
+      'microtech': 'microTech',
+      'ariel': 'Ariel',
+      'aberdeen': 'Aberdeen',
+      'magda': 'Magda',
+      'ita': 'Ita',
+      'cellin': 'Cellin',
+      'daymar': 'Daymar',
+      'yela': 'Yela',
+      'lyria': 'Lyria',
+      'wala': 'Wala',
+      'calliope': 'Calliope',
+      'clio': 'Clio',
+      'euterpe': 'Euterpe',
+      // Add more names as needed
+    };
+    
+    // Check if ID contains any known celestial name
+    const lowerId = id.toLowerCase();
+    for (const [searchKey, properName] of Object.entries(celestialNameMap)) {
+      if (lowerId.includes(searchKey)) {
+        console.log(`[tryExtractNameFromId] Found match: ${id} contains '${searchKey}' -> '${properName}'`);
+        return properName;
+      }
+    }
+    
+    // Check if the ID follows various name patterns
+    
+    // Pattern 1: name-uuid
+    const nameUuidPattern = /^([a-z]+)[-_]([0-9a-f-]+)/i;
+    const nameUuidMatch = id.match(nameUuidPattern);
+    if (nameUuidMatch && nameUuidMatch[1] && nameUuidMatch[1].length > 2) {
+      const extractedPart = nameUuidMatch[1];
+      const capitalizedName = extractedPart.charAt(0).toUpperCase() + extractedPart.slice(1);
+      console.log(`[tryExtractNameFromId] Extracted from name-uuid pattern: ${id} -> '${capitalizedName}'`);
+      return capitalizedName;
+    }
+    
+    // Pattern 2: uuid-name
+    const uuidNamePattern = /([0-9a-f-]+)[-_]([a-z]+)/i;
+    const uuidNameMatch = id.match(uuidNamePattern);
+    if (uuidNameMatch && uuidNameMatch[2] && uuidNameMatch[2].length > 2) {
+      const extractedPart = uuidNameMatch[2];
+      const capitalizedName = extractedPart.charAt(0).toUpperCase() + extractedPart.slice(1);
+      console.log(`[tryExtractNameFromId] Extracted from uuid-name pattern: ${id} -> '${capitalizedName}'`);
+      return capitalizedName;
+    }
+    
+    // Pattern 3: name_with_underscores or name.with.dots
+    const separatorPattern = /([a-z]+)[_.]([a-z]+)/i;
+    const separatorMatch = id.match(separatorPattern);
+    if (separatorMatch && separatorMatch[1] && separatorMatch[1].length > 2) {
+      const extractedPart = separatorMatch[1];
+      const capitalizedName = extractedPart.charAt(0).toUpperCase() + extractedPart.slice(1);
+      console.log(`[tryExtractNameFromId] Extracted from separator pattern: ${id} -> '${capitalizedName}'`);
+      return capitalizedName;
+    }
+    
+    // If we reach here, no patterns matched
+    console.log(`[tryExtractNameFromId] No name pattern found in ID: ${id}`);
+    return null;
+  };
+  
   // Function to get celestial name directly without dependency on service
   const localGetCelestialName = (id: string | undefined): string => {
     if (!id) return 'Unknown';
     
-    // Track total attempts
-    setMappingStats(prev => ({...prev, total: prev.total + 1}));
+    // Log the attempt for debugging
+    log(`Attempting to resolve name for ID: ${id}`);
     
     // First check our direct map
     if (directNameMap[id]) {
-      setMappingStats(prev => ({...prev, resolved: prev.resolved + 1}));
+      log(`Found direct mapping for ${id}: ${directNameMap[id]}`);
       return directNameMap[id];
     }
     
     // Fallback to service
     const serviceName = CelestialIdMappingService.getNameFromId(id);
     if (serviceName !== id) {
-      // Cache this successful resolution for future
-      setDirectNameMap(prevMap => ({
-        ...prevMap,
-        [id]: serviceName
-      }));
-      setMappingStats(prev => ({...prev, resolved: prev.resolved + 1}));
-      return serviceName;
+      // Add to our direct map for future reference
+      if (serviceName) {
+        log(`Found service mapping for ${id}: ${serviceName}`);
+        setDirectNameMap(prev => ({...prev, [id]: serviceName}));
+        return serviceName;
+      }
     }
     
     // Try advanced UUID pattern matching for regional naming conventions
@@ -196,16 +279,10 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     const uuidMatch = id.match(/^([a-z]+)[-_]([0-9a-f]{8}[-]?[0-9a-f]{4}[-]?[0-9a-f]{4}[-]?[0-9a-f]{4}[-]?[0-9a-f]{12})/i);
     if (uuidMatch && uuidMatch[1]) {
       const extractedName = uuidMatch[1].charAt(0).toUpperCase() + uuidMatch[1].slice(1);
+      log(`Extracted name from UUID pattern for ${id}: ${extractedName}`);
       
-      // Cache this successful resolution for future
-      setDirectNameMap(prevMap => ({
-        ...prevMap,
-        [id]: extractedName
-      }));
-      
-      // Also add to service
+      // Add to mapping service for future use
       CelestialIdMappingService.addAlertIdMapping(id, extractedName);
-      setMappingStats(prev => ({...prev, resolved: prev.resolved + 1}));
       
       return extractedName;
     }
@@ -213,28 +290,132 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     // Try heuristic name extraction
     const extractedName = tryExtractNameFromId(id);
     if (extractedName) {
-      // Cache this successful resolution for future
-      setDirectNameMap(prevMap => ({
-        ...prevMap,
-        [id]: extractedName
-      }));
+      log(`Extracted name using heuristic for ${id}: ${extractedName}`);
       
-      // Also add to service
+      // Add to mapping service for future use
       CelestialIdMappingService.addAlertIdMapping(id, extractedName);
-      setMappingStats(prev => ({...prev, resolved: prev.resolved + 1}));
       
       return extractedName;
     }
     
-    // Record failed mapping attempt
-    setUnmappedIds(prev => new Set(prev).add(id));
-    setMappingStats(prev => ({...prev, failed: prev.failed + 1}));
+    // No mapping found, log the issue for troubleshooting
+    console.warn(`[AlertList] No name mapping found for ID: ${id}`);
     
-    // No name found, return the original ID with logging
-    console.error(`[AlertList] Failed to resolve name for ID: ${id}`);
-    return id;
+    // Return the ID with a visual indicator that it's an unmapped ID
+    return `ID:${id.substring(0, 6)}`;
   };
 
+  // Use effect to collect and update missing name mappings
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    
+    // Log all alert IDs for debugging
+    console.log('[AlertList] Processing alerts with the following IDs:');
+    alerts.forEach(alert => {
+      console.log(`Alert ID: ${alert.id}`);
+      console.log(`  Origin: ${alert.originId}`);
+      console.log(`  Destination: ${alert.destinationId}`);
+      console.log(`  Location: ${alert.locationId}`);
+    });
+    
+    // Get all unique IDs from alerts including every field that might contain an ID
+    const allIds = new Set<string>();
+    alerts.forEach(alert => {
+      // Add all possible ID fields
+      if (alert.originId) allIds.add(alert.originId);
+      if (alert.destinationId) allIds.add(alert.destinationId);
+      if (alert.locationId) allIds.add(alert.locationId);
+      if (alert.nearestCelestialId) allIds.add(alert.nearestCelestialId);
+      
+      // Any other fields that might contain IDs
+      const alertObj = alert as any;
+      for (const key of Object.keys(alertObj)) {
+        const value = alertObj[key];
+        // Check if this looks like an ID (UUID pattern)
+        if (typeof value === 'string' && 
+            value.length > 30 && 
+            /^[0-9a-f-]+$/i.test(value) &&
+            !allIds.has(value)) {
+          console.log(`[AlertList] Found potential ID in field ${key}: ${value}`);
+          allIds.add(value);
+        }
+      }
+    });
+    
+    console.log(`[AlertList] Found ${allIds.size} unique IDs to process`);
+    
+    // Track new mappings and stats
+    let newNameMap = {...directNameMap};
+    let totalResolved = 0;
+    let totalFailed = 0;
+    let updatedUnmappedIds = new Set<string>(unmappedIds);
+    let madeChanges = false;
+    
+    // Process each ID
+    allIds.forEach(id => {
+      // Skip IDs we already have in our direct map
+      if (directNameMap[id]) {
+        console.log(`[AlertList] Already have mapping for ${id}: ${directNameMap[id]}`);
+        return;
+      }
+      
+      // Try service first - this is the proper way to get names
+      const serviceName = CelestialIdMappingService.getNameFromId(id);
+      if (serviceName !== id) {
+        console.log(`[AlertList] Found mapping via service for ${id}: ${serviceName}`);
+        newNameMap[id] = serviceName;
+        CelestialIdMappingService.addAlertIdMapping(id, serviceName);
+        totalResolved++;
+        madeChanges = true;
+        return;
+      }
+      
+      // Try more extensive UUID pattern matching
+      // Pattern 1: name-uuid
+      const uuidMatch = id.match(/^([a-z]+)[-_]([0-9a-f]{8}[-]?[0-9a-f]{4}[-]?[0-9a-f]{4}[-]?[0-9a-f]{4}[-]?[0-9a-f]{12})/i);
+      if (uuidMatch && uuidMatch[1]) {
+        const extractedName = uuidMatch[1].charAt(0).toUpperCase() + uuidMatch[1].slice(1);
+        console.log(`[AlertList] Extracted name from UUID pattern for ${id}: ${extractedName}`);
+        newNameMap[id] = extractedName;
+        CelestialIdMappingService.addAlertIdMapping(id, extractedName);
+        totalResolved++;
+        madeChanges = true;
+        return;
+      }
+      
+      // Try heuristic name extraction
+      const extractedName = tryExtractNameFromId(id);
+      if (extractedName) {
+        console.log(`[AlertList] Extracted name using heuristic for ${id}: ${extractedName}`);
+        newNameMap[id] = extractedName;
+        CelestialIdMappingService.addAlertIdMapping(id, extractedName);
+        totalResolved++;
+        madeChanges = true;
+        return;
+      }
+      
+      // No mapping found, track as unmapped
+      updatedUnmappedIds.add(id);
+      totalFailed++;
+      madeChanges = true;
+      
+      // Log failure for debugging
+      console.warn(`[AlertList] Failed to resolve name for ID: ${id}`);
+    });
+    
+    // Only update state if we made changes
+    if (madeChanges) {
+      console.log(`[AlertList] Batch processed ${totalResolved} resolved, ${totalFailed} failed`);
+      setDirectNameMap(newNameMap);
+      setUnmappedIds(updatedUnmappedIds);
+      setMappingStats(prev => ({
+        total: prev.total + totalResolved + totalFailed,
+        resolved: prev.resolved + totalResolved,
+        failed: prev.failed + totalFailed
+      }));
+    }
+  }, [alerts]);
+  
   // Fetch alerts when region/shard filter changes
   useEffect(() => {
     let isMounted = true;
@@ -486,37 +667,6 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     }
   }, [alerts, localGetCelestialName]);
   
-  // Function to try to extract a meaningful name from an ID string
-  const tryExtractNameFromId = (id: string): string | null => {
-    if (!id) return null;
-    
-    // Common celestial body names
-    const celestialNames = [
-      'stanton', 'hurston', 'crusader', 'arccorp', 'microtech',
-      'ariel', 'aberdeen', 'magda', 'ita', 
-      'cellin', 'daymar', 'yela',
-      'lyria', 'wala',
-      'calliope', 'clio', 'euterpe'
-    ];
-    
-    // Check if ID contains any known celestial name
-    const lowerId = id.toLowerCase();
-    for (const name of celestialNames) {
-      if (lowerId.includes(name)) {
-        // Capitalize first letter for display
-        return name.charAt(0).toUpperCase() + name.slice(1);
-      }
-    }
-    
-    // Check if the ID follows a name-uuid pattern
-    const parts = id.split('-');
-    if (parts.length > 1 && parts[0].length > 2) {
-      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-    }
-    
-    return null;
-  };
-  
   // Memoize the getDisplayId function to avoid state update loops
   const getDisplayId = useCallback((id: string | undefined): string => {
     if (!id) return 'Unknown';
@@ -563,100 +713,6 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     return id;
   }, [directNameMap, tryExtractNameFromId]);
   
-  // Process emergency mappings separately after render
-  useEffect(() => {
-    // Process all alerts through our emergency mappings
-    // This runs after rendering is complete
-    if (alerts.length > 0) {
-      const knownUuidMappings: Record<string, string> = {
-        '8af309da-4560-48df-8223-ddd02c016fb3': 'Stanton',
-        '52a77839-4e55-4cdd-bdd3-ac7bb9626b03': 'Hurston',
-        '20f3f4d3-d6fb-4f8d-9e56-df6308fce7a5': 'Crusader',
-        'a6e9252e-4c72-4e51-adbe-5e2222cc79c2': 'ArcCorp',
-        'd6fc1705-6aba-4dbe-ba24-1ea80cb8d00d': 'microTech',
-        'd191779b-ac62-4c84-90a5-7721aefb97c4': 'Hurston Area',
-        'b3557a17-1d2d-4b7b-92ef-5e20445b10ea': 'MicroTech Orbit',
-        '8e38ba99-f1cd-49df-bc4e-5ef9309b511f': 'ArcCorp City'
-      };
-      
-      // Update mapping state once for all matched IDs
-      let newDirectNameMap = {...directNameMap};
-      let totalResolved = 0;
-      let totalFailed = 0;
-      let newUnmapped = new Set<string>(unmappedIds);
-      let madeChanges = false;
-      
-      // Process all possible IDs from all alerts to collect updates
-      const processIds = new Set<string>();
-      alerts.forEach(alert => {
-        if (alert.originId) processIds.add(alert.originId);
-        if (alert.destinationId) processIds.add(alert.destinationId);
-        if (alert.locationId) processIds.add(alert.locationId);
-      });
-      
-      // Process each unique ID
-      processIds.forEach(id => {
-        if (!id) return;
-        
-        // Already in our map - skip
-        if (directNameMap[id]) return;
-        
-        // Emergency mapping
-        if (knownUuidMappings[id]) {
-          newDirectNameMap[id] = knownUuidMappings[id];
-          CelestialIdMappingService.addAlertIdMapping(id, knownUuidMappings[id]);
-          totalResolved++;
-          madeChanges = true;
-          return;
-        }
-        
-        // Try the mapping service
-        const serviceName = CelestialIdMappingService.getNameFromId(id);
-        if (serviceName !== id) {
-          newDirectNameMap[id] = serviceName;
-          totalResolved++;
-          madeChanges = true;
-          return;
-        }
-        
-        // Try to extract name patterns from ID
-        const extractedName = tryExtractNameFromId(id);
-        if (extractedName) {
-          newDirectNameMap[id] = extractedName;
-          CelestialIdMappingService.addAlertIdMapping(id, extractedName);
-          totalResolved++;
-          madeChanges = true;
-          return;
-        }
-        
-        // No resolution - track as unmapped
-        newUnmapped.add(id);
-        totalFailed++;
-        madeChanges = true;
-      });
-      
-      // Only update state if we made changes
-      if (madeChanges) {
-        console.log(`[AlertList] Batch updated ${totalResolved} mappings, ${totalFailed} failed`);
-        setDirectNameMap(newDirectNameMap);
-        setUnmappedIds(newUnmapped);
-        setMappingStats(prev => ({
-          total: prev.total + totalResolved + totalFailed,
-          resolved: prev.resolved + totalResolved,
-          failed: prev.failed + totalFailed
-        }));
-      }
-    }
-  }, [alerts, directNameMap, unmappedIds, tryExtractNameFromId]);
-  
-  // Process the alert to display IDs directly
-  const processAlertForDisplay = (alert: any): void => {
-    // No mapping or transforms - just direct display of IDs
-    if (DEBUG) {
-      console.log(`[AlertList] Processing alert: ${alert.id}, Origin: ${alert.originId}, Destination: ${alert.destinationId || alert.locationId || 'Unknown'}`);
-    }
-  };
-  
   // Keyboard shortcut for debug panel (Ctrl+Shift+D)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -670,206 +726,184 @@ const AlertList: React.FC<AlertListProps> = ({ activeRegion, activeShard }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // Function that validates all alert IDs to see if they can be mapped
-  const validateAllAlertMappings = useCallback(() => {
-    console.log('[AlertList] Validating all alert mappings...');
+  // Handle alert click to show modal instead of navigating
+  const handleAlertClick = (alert: RouteAlert) => {
+    setSelectedAlert(alert);
+    setShowAlertModal(true);
     
-    // Reset stats for new validation
-    setMappingStats({
-      total: 0,
-      resolved: 0,
-      failed: 0
-    });
-    
-    // Clear unmapped IDs set
-    setUnmappedIds(new Set());
-    
-    // Process all alerts and verify mapping
-    alerts.forEach(alert => {
-      // Check if origin ID can be mapped
-      if (alert.originId) {
-        const resolvedName = getDisplayId(alert.originId);
-        if (resolvedName === alert.originId) {
-          console.error(`[AlertList] Mapping failed for origin ID: ${alert.originId}`);
-        }
-      }
-      
-      // Check if destination ID can be mapped
-      if (alert.destinationId) {
-        const resolvedName = getDisplayId(alert.destinationId);
-        if (resolvedName === alert.destinationId) {
-          console.error(`[AlertList] Mapping failed for destination ID: ${alert.destinationId}`);
-        }
-      }
-      
-      // Check if location ID can be mapped
-      if (alert.locationId) {
-        const resolvedName = getDisplayId(alert.locationId);
-        if (resolvedName === alert.locationId) {
-          console.error(`[AlertList] Mapping failed for location ID: ${alert.locationId}`);
-        }
-      }
-    });
-    
-    console.log('[AlertList] Validation complete. Success rate:', 
-                Math.round((mappingStats.resolved / mappingStats.total) * 100), '%');
-  }, [alerts, getDisplayId, mappingStats.resolved, mappingStats.total]);
-  
-  // Add debug logging for alert IDs and their mapping results
-  useEffect(() => {
-    if (alerts.length > 0) {
-      console.log('===== ALERT ID MAPPING DEBUG =====');
-      alerts.forEach(alert => {
-        if (alert.type === 'interdiction') {
-          console.log(`🔍 ORIGIN ID DEBUG: ${alert.originId} → resolved to → ${getDisplayId(alert.originId)}`);
-          console.log(`🔍 DEST ID DEBUG: ${alert.destinationId} → resolved to → ${getDisplayId(alert.destinationId)}`);
-        } else {
-          console.log(`🔍 LOCATION ID DEBUG: ${alert.locationId || alert.destinationId} → resolved to → ${getDisplayId(alert.locationId || alert.destinationId)}`);
-        }
-      });
-      console.log('==================================');
+    // Visualize the alert on the map
+    try {
+      const visualization = createAlertVisualization(alert);
+      removeRouteVisualization(); // Clear previous visualizations
+      addRouteVisualization(visualization);
+    } catch (err) {
+      console.error('Error creating alert visualization:', err);
     }
-  }, [alerts, getDisplayId]);
+  };
+  
+  // Close alert modal
+  const handleCloseAlertModal = () => {
+    setShowAlertModal(false);
+    
+    // Clear visualization when modal is closed
+    removeRouteVisualization();
+  };
   
   return (
-    <div className={`alert-list-container ${isCollapsed ? 'collapsed' : ''}`}>
-      <div className="alert-list-header" onClick={toggleCollapse}>
-        <div className="header-title">
-          <h2>Activity Alerts</h2>
-          <span className="collapse-icon">{isCollapsed ? '>' : '<'}</span>
+    <div className="alert-list-container">
+      {isLoading ? (
+        <div className="alert-list-loading">
+          <div className="loading-spinner"></div>
+          <p>Loading alerts...</p>
         </div>
-        
-        {!isCollapsed && (
-          <div className="alert-type-filters">
-            <button 
-              className={`type-filter-btn ${selectedType === 'all' ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTypeFilter('all');
-              }}
-            >
-              All
-            </button>
-            <button 
-              className={`type-filter-btn ${selectedType === 'interdiction' ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTypeFilter('interdiction');
-              }}
-            >
-              Interdiction
-            </button>
-            <button 
-              className={`type-filter-btn ${selectedType === 'pvp' ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleTypeFilter('pvp');
-              }}
-            >
-              PvP
-            </button>
-          </div>
-        )}
-      </div>
-      
-      {!isCollapsed && (
-        <>
-          {isLoading ? (
-            <div className="alert-list-loading">
-              <span className="loading-spinner"></span>
-              <p>Loading alerts...</p>
-            </div>
-          ) : error ? (
-            <div className="alert-list-error">
-              <p>{error}</p>
-              <button onClick={() => window.location.reload()}>Retry</button>
-            </div>
-          ) : alerts.length === 0 ? (
-            <div className="alert-list-empty">
-              <p>No alerts found for the selected filters.</p>
-              {isAuthenticated && (
-                <Link to="/create-alert" className="create-alert-btn">
-                  Create Alert
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="alert-list">
-              {alerts.map(alert => (
-                <Link key={alert.id} to={`/alert/${alert.id}`} className="alert-item-link">
-                  <div className={`alert-item alert-type-${alert.type} compact-row`}>
-                    <div className="alert-icon">{alert.type === 'interdiction' ? '⚠️' : '⚔️'}</div>
-                    <div className="alert-content">
-                      <div className="alert-info">
-                        <div className="alert-route">
-                          {alert.type === 'interdiction' ? (
-                            <>
-                              {getDisplayId(alert.originId) || 'Unknown'} → {getDisplayId(alert.destinationId) || 'Unknown'}
-                            </>
-                          ) : (
-                            <>
-                              {getDisplayId(alert.locationId || alert.destinationId) || 'Unknown'}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="alert-meta">
-                        <span className="region-shard">{alert.region.toUpperCase()}-{alert.shard}</span>
-                        <span className="time-ago">{renderAlertTime(alert.lastActivity)}</span>
+      ) : error ? (
+        <div className="alert-list-error">
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="alert-list-empty">
+          <p>No alerts found for the current filters.</p>
+        </div>
+      ) : (
+        <div className="alert-list">
+          {alerts.map(alert => {
+            // Debug what we're about to render
+            const originName = localGetCelestialName(alert.originId);
+            const destName = localGetCelestialName(alert.destinationId);
+            const locName = localGetCelestialName(alert.locationId || alert.destinationId);
+            
+            // Log detailed info for debugging
+            console.log(`[AlertList Render] Alert ${alert.id}: ${originName} -> ${destName} (Location: ${locName})`);
+            
+            // Check if names were resolved properly
+            const hasUnresolvedNames = 
+              (alert.originId && originName.startsWith('ID:')) || 
+              (alert.destinationId && destName.startsWith('ID:')) || 
+              ((alert.locationId || alert.destinationId) && locName.startsWith('ID:'));
+            
+            return (
+              <Link key={alert.id} to={`/alert/${alert.id}`} className="alert-item-link" onClick={(e) => {
+                e.preventDefault();
+                handleAlertClick(alert);
+              }}>
+                <div className={`alert-item alert-type-${alert.type} compact-row ${hasUnresolvedNames ? 'has-unresolved-names' : ''}`}>
+                  <div className="alert-icon">{alert.type === 'interdiction' ? '⚠️' : '⚔️'}</div>
+                  <div className="alert-content">
+                    <div className="alert-info">
+                      <div className="alert-route">
+                        {alert.type === 'interdiction' ? (
+                          <>
+                            {originName || 'Unknown'} → {destName || 'Unknown'}
+                          </>
+                        ) : (
+                          <>
+                            {locName || 'Unknown'}
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="alert-stats">
-                      <span className="confirm-count" title="Confirmations">{alert.confirmations}</span>
-                      <span className="divider">/</span>
-                      <span className="dispute-count" title="Disputes">{alert.disputes}</span>
+                    <div className="alert-meta">
+                      <span className="region-shard">{alert.region.toUpperCase()}-{alert.shard}</span>
+                      <span className="time-ago">{renderAlertTime(alert.lastActivity)}</span>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-          
-          {isAuthenticated && (
-            <div className="create-alert-container">
-              <Link to="/create-alert" className="create-alert-btn full-width">
-                Create Alert
-              </Link>
-            </div>
-          )}
-          
-          {showDebugPanel && (
-            <div className="debug-panel">
-              <h3>Mapping Debug Panel</h3>
-              <div className="stats">
-                <p>Total IDs: {mappingStats.total}</p>
-                <p>Resolved: {mappingStats.resolved}</p>
-                <p>Failed: {mappingStats.failed}</p>
-                <p>Success Rate: {mappingStats.total > 0 ? Math.round((mappingStats.resolved / mappingStats.total) * 100) : 0}%</p>
-              </div>
-              <div className="actions">
-                <button onClick={validateAllAlertMappings}>
-                  Validate All Mappings
-                </button>
-                <button onClick={() => setDirectNameMap({})}>
-                  Clear Local Cache
-                </button>
-                <button onClick={() => CelestialIdMappingService.logMappings()}>
-                  Log All Mappings
-                </button>
-              </div>
-              {unmappedIds.size > 0 && (
-                <div className="unmapped-section">
-                  <h4>Unmapped IDs ({unmappedIds.size})</h4>
-                  <div className="unmapped-list">
-                    {Array.from(unmappedIds).map(id => (
-                      <div key={id} className="unmapped-id">{id}</div>
-                    ))}
+                  <div className="alert-stats">
+                    <span className="confirm-count" title="Confirmations">{alert.confirmations}</span>
+                    <span className="divider">/</span>
+                    <span className="dispute-count" title="Disputes">{alert.disputes}</span>
                   </div>
                 </div>
-              )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+      
+      {showDebugPanel && (
+        // Debugging panel
+        <div className="debug-panel">
+          <h4>Debug Info</h4>
+          <div className="debug-content">
+            <p>Filters: {activeRegion || 'All'} / {activeShard || 'All'}</p>
+            <p>Total Alerts: {alerts.length}</p>
+            <button onClick={() => setShowDebugPanel(false)}>Close</button>
+          </div>
+        </div>
+      )}
+      
+      {/* Alert Modal */}
+      {showAlertModal && selectedAlert && (
+        <div className="alert-modal-overlay" onClick={handleCloseAlertModal}>
+          <div className="alert-modal" onClick={e => e.stopPropagation()}>
+            <div className="alert-modal-header">
+              <h3>
+                {selectedAlert.type === 'interdiction' ? 'Interdiction Alert' : 'PvP Alert'}
+              </h3>
+              <button className="close-button" onClick={handleCloseAlertModal}>×</button>
             </div>
-          )}
-        </>
+            
+            <div className="alert-modal-content">
+              <div className="alert-info-section">
+                <div className="alert-route-detail">
+                  {selectedAlert.type === 'interdiction' ? (
+                    <>
+                      <div className="route-item">
+                        <span className="label">From:</span>
+                        <span className="value">{localGetCelestialName(selectedAlert.originId)}</span>
+                      </div>
+                      <div className="route-item">
+                        <span className="label">To:</span>
+                        <span className="value">{localGetCelestialName(selectedAlert.destinationId)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="route-item">
+                      <span className="label">Location:</span>
+                      <span className="value">
+                        {localGetCelestialName(selectedAlert.locationId || selectedAlert.destinationId)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                  
+                <div className="alert-meta-detail">
+                  <div className="meta-item">
+                    <span className="label">Region:</span>
+                    <span className="value">{selectedAlert.region.toUpperCase()}-{selectedAlert.shard}</span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="label">Reported:</span>
+                    <span className="value">{renderAlertTime(selectedAlert.timestamp)}</span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="label">Last Activity:</span>
+                    <span className="value">{renderAlertTime(selectedAlert.lastActivity)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="alert-actions-container">
+                <button 
+                  className="confirm-button"
+                  onClick={() => handleConfirmAlert(selectedAlert.id)}
+                  disabled={!isAuthenticated}
+                >
+                  <span className="count">{selectedAlert.confirmations}</span>
+                  Confirm
+                </button>
+                <button 
+                  className="dispute-button"
+                  onClick={() => handleDisputeAlert(selectedAlert.id)}
+                  disabled={!isAuthenticated}
+                >
+                  <span className="count">{selectedAlert.disputes}</span>
+                  Dispute
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

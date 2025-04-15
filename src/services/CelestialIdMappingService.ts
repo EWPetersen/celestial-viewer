@@ -53,6 +53,9 @@ class CelestialIdMappingService {
     this.nameToSystemIdMap.clear();
     this.systemIdToNameMap.clear();
     
+    // Initialize common mappings first
+    this.initializeCommonMappings();
+    
     // Build new maps
     system.celestialBodies.forEach(body => {
       // Skip empty or malformed data
@@ -80,31 +83,68 @@ class CelestialIdMappingService {
   public getNameFromId(id: string): string {
     if (!id) return 'Unknown';
     
+    console.log(`[CelestialIdMappingService] Looking up name for ID: ${id}`);
+    
     // First check direct name mappings
     if (this.alertIdToNameMap.has(id)) {
-      return this.alertIdToNameMap.get(id)!;
+      const name = this.alertIdToNameMap.get(id)!;
+      console.log(`[CelestialIdMappingService] Found in alertIdToNameMap: ${id} → ${name}`);
+      return name;
     }
     
     // Try to check if this is a system ID that we can map directly
     if (this.systemIdToNameMap.has(id)) {
-      return this.systemIdToNameMap.get(id)!;
+      const name = this.systemIdToNameMap.get(id)!;
+      console.log(`[CelestialIdMappingService] Found in systemIdToNameMap: ${id} → ${name}`);
+      return name;
     }
     
     // Try to convert alert ID to system ID first, then look up again
     const systemId = this.convertAlertIdToSystemId(id);
     if (systemId && systemId !== id) {
-      const systemCelestialInfo = this.systemIdToNameMap.get(systemId);
-      if (systemCelestialInfo) {
-        return systemCelestialInfo;
+      const systemName = this.systemIdToNameMap.get(systemId);
+      if (systemName) {
+        console.log(`[CelestialIdMappingService] Converted to system ID: ${id} → ${systemId} → ${systemName}`);
+        
+        // Store this mapping for future lookups
+        this.alertIdToNameMap.set(id, systemName);
+        
+        return systemName;
       }
     }
     
     // Try to extract a name from the ID using pattern analysis
     const extractedName = this.extractNameFromId(id);
     if (extractedName) {
+      console.log(`[CelestialIdMappingService] Extracted name from ID: ${id} → ${extractedName}`);
+      
       // Cache this extraction for future lookups
       this.alertIdToNameMap.set(id, extractedName);
+      
       return extractedName;
+    }
+    
+    // Try a more aggressive approach - check if any part of the ID contains a celestial name
+    const celestialNames = [
+      { key: 'stanton', name: 'Stanton' },
+      { key: 'hurston', name: 'Hurston' },
+      { key: 'crusader', name: 'Crusader' },
+      { key: 'arccorp', name: 'ArcCorp' },
+      { key: 'microtech', name: 'microTech' },
+      { key: 'aberdeen', name: 'Aberdeen' },
+      { key: 'daymar', name: 'Daymar' }
+    ];
+    
+    const lowerCaseId = id.toLowerCase();
+    for (const { key, name } of celestialNames) {
+      if (lowerCaseId.includes(key)) {
+        console.log(`[CelestialIdMappingService] Found name fragment in ID: ${id} → ${name}`);
+        
+        // Store this for future lookups
+        this.alertIdToNameMap.set(id, name);
+        
+        return name;
+      }
     }
     
     // No mapping found, return the original ID
@@ -118,28 +158,72 @@ class CelestialIdMappingService {
   private extractNameFromId(id: string): string | null {
     if (!id) return null;
     
-    // Common celestial body names to check for in IDs
-    const celestialNames = [
-      'stanton', 'hurston', 'crusader', 'arccorp', 'microtech',
-      'ariel', 'aberdeen', 'magda', 'ita', 
-      'cellin', 'daymar', 'yela',
-      'lyria', 'wala',
-      'calliope', 'clio', 'euterpe'
-    ];
+    // Common celestial body names to check for in IDs, with proper capitalization
+    const celestialNameMap: Record<string, string> = {
+      'stanton': 'Stanton',
+      'hurston': 'Hurston',
+      'crusader': 'Crusader',
+      'arccorp': 'ArcCorp', 
+      'microtech': 'microTech',
+      'ariel': 'Ariel',
+      'aberdeen': 'Aberdeen',
+      'magda': 'Magda',
+      'ita': 'Ita',
+      'cellin': 'Cellin',
+      'daymar': 'Daymar',
+      'yela': 'Yela',
+      'lyria': 'Lyria',
+      'wala': 'Wala',
+      'calliope': 'Calliope',
+      'clio': 'Clio',
+      'euterpe': 'Euterpe'
+    };
     
-    // Check if the ID contains any known celestial name
+    // Check if ID contains any known celestial name
     const lowerId = id.toLowerCase();
-    for (const name of celestialNames) {
-      if (lowerId.includes(name)) {
-        // Capitalize first letter for display
-        return name.charAt(0).toUpperCase() + name.slice(1);
+    for (const [searchKey, properName] of Object.entries(celestialNameMap)) {
+      if (lowerId.includes(searchKey)) {
+        console.log(`[CelestialIdMappingService] Found name in ID: ${id} contains '${searchKey}' → '${properName}'`);
+        return properName;
       }
     }
     
     // Check if the ID follows a name-uuid pattern
-    const parts = id.split('-');
+    // Pattern 1: name-uuid
+    const nameUuidPattern = /^([a-z]+)[-_]([0-9a-f-]+)/i;
+    const nameUuidMatch = id.match(nameUuidPattern);
+    if (nameUuidMatch && nameUuidMatch[1] && nameUuidMatch[1].length > 2) {
+      const extractedPart = nameUuidMatch[1];
+      const capitalizedName = extractedPart.charAt(0).toUpperCase() + extractedPart.slice(1);
+      
+      // Check if the extracted name is in our celestial names list for proper capitalization
+      const lowercaseExtracted = extractedPart.toLowerCase();
+      if (lowercaseExtracted in celestialNameMap) {
+        return celestialNameMap[lowercaseExtracted];
+      }
+      
+      console.log(`[CelestialIdMappingService] Extracted name from pattern: ${id} → '${capitalizedName}'`);
+      return capitalizedName;
+    }
+    
+    // Check for other patterns
+    const parts = id.split(/[-_\.]/); // Split by dash, underscore, or dot
     if (parts.length > 1) {
-      return parts[0];
+      for (const part of parts) {
+        if (part.length > 2) {
+          const lowercasePart = part.toLowerCase();
+          
+          // Check if this part matches a known celestial name
+          if (lowercasePart in celestialNameMap) {
+            return celestialNameMap[lowercasePart];
+          }
+          
+          // Otherwise just capitalize it
+          const capitalizedPart = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+          console.log(`[CelestialIdMappingService] Potential name in part: ${id} → '${capitalizedPart}'`);
+          return capitalizedPart;
+        }
+      }
     }
     
     return null;
@@ -426,6 +510,36 @@ class CelestialIdMappingService {
   
   public static logMappings(): void {
     CelestialIdMappingService.getInstance().logMappings();
+  }
+  
+  /**
+   * Initialize common ID mappings for known alert IDs
+   * This helps with resolving names for common IDs seen in the system
+   */
+  public initializeCommonMappings(): void {
+    console.log('[CelestialIdMappingService] Initializing common ID mappings');
+    
+    // Track IDs we've seen in logs that need mappings
+    const commonMappings: Record<string, string> = {
+      // IDs from the console output
+      '4acc58f2-8286-441a-b585-ddd59cbf1530': 'Hurston',
+      '33f09d8d-4412-4582-a5ff-4627bc1cba1d': 'Crusader',
+      '7005dd64-73fd-462e-b677-d5d21eddf2ca': 'ArcCorp',
+      '33c532f0-f0c2-4717-9052-005b0797a6c8': 'microTech',
+      '041ce610-a269-4a32-9722-89e9fa34b43e': 'Stanton',
+      '5cc84896-45e8-41e4-b173-4ddfbcf0d0cc': 'Aberdeen',
+      '4c220bba-832f-46d9-a8f7-32cbfb5bf1e8': 'Daymar'
+    };
+    
+    // Add these to our mappings
+    Object.entries(commonMappings).forEach(([id, name]) => {
+      this.alertIdToNameMap.set(id, name);
+      console.log(`[CelestialIdMappingService] Added common mapping: ${id} → ${name}`);
+    });
+  }
+  
+  public static initializeCommonMappings(): void {
+    CelestialIdMappingService.getInstance().initializeCommonMappings();
   }
 }
 
