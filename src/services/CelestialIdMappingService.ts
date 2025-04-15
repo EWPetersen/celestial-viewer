@@ -11,7 +11,7 @@ import MappingDiscoveryService from './MappingDiscoveryService';
  * The issue is that alerts have their own set of IDs which don't match 
  * the IDs in the current celestial system, causing alerts to not display properly.
  */
-class CelestialIdMappingService {
+export class CelestialIdMappingService {
   private static instance: CelestialIdMappingService;
   
   // Map from alert IDs to names
@@ -32,7 +32,17 @@ class CelestialIdMappingService {
   // Reference to the current celestial system
   private celestialSystem: CelestialSystem | null = null;
   
-  private constructor() {}
+  private commonMappings: Record<string, string> = {};
+  private dynamicMappings: Record<string, string> = {};
+  private isInitialized = false;
+  
+  private storedIds: string[] = []; // Track keys separately
+  
+  private constructor() {
+    this.alertIdToNameMap = new Map<string, string>();
+    this.storedIds = [];
+    this.initializeCommonMappings();
+  }
   
   public static getInstance(): CelestialIdMappingService {
     if (!CelestialIdMappingService.instance) {
@@ -42,19 +52,12 @@ class CelestialIdMappingService {
   }
   
   /**
-   * Initialize with a celestial system 
-   * This sets up the name mappings from the system ID to names
-   * @param system The celestial system with bodies 
+   * Process celestial system data to build mappings
    */
-  public initialize(system: CelestialSystem): void {
-    this.celestialSystem = system;
-    
+  private processCelestialSystemData(system: CelestialSystem): void {
     // Clear existing maps to avoid stale data
     this.nameToSystemIdMap.clear();
     this.systemIdToNameMap.clear();
-    
-    // Initialize common mappings first
-    this.initializeCommonMappings();
     
     // Build new maps
     system.celestialBodies.forEach(body => {
@@ -72,7 +75,30 @@ class CelestialIdMappingService {
       }
     });
     
-    console.log(`[CelestialIdMappingService] Initialized with ${system.celestialBodies.length} celestial bodies`);
+    console.log(`[CelestialIdMappingService] Processed system data with ${system.celestialBodies.length} celestial bodies`);
+  }
+  
+  /**
+   * Initialize the mapping service
+   * Can be called multiple times to refresh mappings
+   */
+  public initialize(celestialSystem?: CelestialSystem): void {
+    console.log('[CelestialIdMappingService] Initializing mapping service');
+    
+    // Store the celestial system data if provided
+    if (celestialSystem) {
+      this.celestialSystem = celestialSystem;
+      this.processCelestialSystemData(celestialSystem);
+    }
+    
+    // Initialize common mappings for entities we know about
+    this.initializeCommonMappings();
+    
+    // Register this mapping service with the discovery service
+    if (MappingDiscoveryService.isInitialized && MappingDiscoveryService.isInitialized()) {
+      // Since registerMappingService doesn't exist, we'll adapt our code to work without it
+      console.log(`[CelestialIdMappingService] Discovered MappingDiscoveryService, but registerMappingService not available`);
+    }
   }
   
   /**
@@ -84,6 +110,26 @@ class CelestialIdMappingService {
     if (!id) return 'Unknown';
     
     console.log(`[CelestialIdMappingService] Looking up name for ID: ${id}`);
+    
+    // Handle short IDs (like 3cbf39d0) which are first 8 chars of UUIDs
+    if (id.length === 8 && /^[0-9a-f]{8}$/i.test(id)) {
+      // Check if the short ID is directly mapped
+      if (this.alertIdToNameMap.has(id)) {
+        const name = this.alertIdToNameMap.get(id)!;
+        console.log(`[CelestialIdMappingService] Found short ID mapping: ${id} → ${name}`);
+        return name;
+      }
+      
+      // Check if it's a prefix of a known long ID
+      for (const [fullId, name] of this.alertIdToNameMap.entries()) {
+        if (fullId.startsWith(id)) {
+          console.log(`[CelestialIdMappingService] Matched short ID ${id} to full ID ${fullId} → ${name}`);
+          // Cache this short ID for future lookups
+          this.alertIdToNameMap.set(id, name);
+          return name;
+        }
+      }
+    }
     
     // First check direct name mappings
     if (this.alertIdToNameMap.has(id)) {
@@ -240,6 +286,13 @@ class CelestialIdMappingService {
     // Store the name mapping
     this.alertIdToNameMap.set(id, name);
     
+    // If this is a UUID format, also store mapping for the short ID (first 8 chars)
+    if (id.length > 8 && /^[0-9a-f-]{8}/.test(id)) {
+      const shortId = id.substring(0, 8);
+      this.alertIdToNameMap.set(shortId, name);
+      console.log(`[CelestialIdMappingService] Added short ID mapping: ${shortId} → ${name}`);
+    }
+    
     // Check if we have a system ID for this name
     const systemId = this.getSystemIdForName(name);
     if (systemId) {
@@ -277,6 +330,12 @@ class CelestialIdMappingService {
     if (this.systemIdToNameMap.has(systemId)) {
       const name = this.systemIdToNameMap.get(systemId)!;
       this.alertIdToNameMap.set(alertId, name);
+      
+      // If alertId is a long UUID, also add mapping for the short form (first 8 chars)
+      if (alertId.length > 8) {
+        const shortId = alertId.substring(0, 8);
+        this.alertIdToNameMap.set(shortId, name);
+      }
     }
     
     // Let the discovery service know about this successful mapping
@@ -302,6 +361,12 @@ class CelestialIdMappingService {
     if (this.systemIdToNameMap.has(systemId)) {
       const name = this.systemIdToNameMap.get(systemId)!;
       this.alertIdToNameMap.set(alertId, name);
+      
+      // If alertId is a long UUID, also add mapping for the short form (first 8 chars)
+      if (alertId.length > 8) {
+        const shortId = alertId.substring(0, 8);
+        this.alertIdToNameMap.set(shortId, name);
+      }
     }
     
     // Let the discovery service know about this mapping
@@ -357,6 +422,28 @@ class CelestialIdMappingService {
     // Skip self-loops early
     if (this.systemIdToNameMap.has(alertId)) {
       return alertId; // Already a system ID
+    }
+    
+    // Check if this is a short ID (first 8 chars of UUID)
+    if (alertId.length === 8 && /^[0-9a-f]{8}$/i.test(alertId)) {
+      // Try to find a full UUID that starts with this prefix
+      const matchingSystemIds = Array.from(this.systemIdToNameMap.keys())
+        .filter(id => id.startsWith(alertId));
+      
+      if (matchingSystemIds.length > 0) {
+        console.log(`[CelestialIdMappingService] Found system ID matching short ID ${alertId}: ${matchingSystemIds[0]}`);
+        return matchingSystemIds[0];
+      }
+      
+      // Try to find a cached mapping that starts with this prefix
+      const matchingAlertIds = Array.from(this.alertIdToSystemIdCache.keys())
+        .filter(id => id.startsWith(alertId));
+      
+      if (matchingAlertIds.length > 0) {
+        const systemId = this.alertIdToSystemIdCache.get(matchingAlertIds[0])!;
+        console.log(`[CelestialIdMappingService] Found cached mapping for short ID ${alertId}: ${matchingAlertIds[0]} -> ${systemId}`);
+        return systemId;
+      }
     }
     
     // Check direct mapping first
@@ -513,33 +600,105 @@ class CelestialIdMappingService {
   }
   
   /**
-   * Initialize common ID mappings for known alert IDs
-   * This helps with resolving names for common IDs seen in the system
+   * Initializes common ID-to-name mappings
+   * This method is called during service initialization to set up known mappings
    */
-  public initializeCommonMappings(): void {
-    console.log('[CelestialIdMappingService] Initializing common ID mappings');
+  private initializeCommonMappings(): void {
+    console.log("[CelestialIdMappingService] Initializing common mappings");
     
-    // Track IDs we've seen in logs that need mappings
+    // Common Stanton system celestial bodies
     const commonMappings: Record<string, string> = {
-      // IDs from the console output
-      '4acc58f2-8286-441a-b585-ddd59cbf1530': 'Hurston',
-      '33f09d8d-4412-4582-a5ff-4627bc1cba1d': 'Crusader',
-      '7005dd64-73fd-462e-b677-d5d21eddf2ca': 'ArcCorp',
-      '33c532f0-f0c2-4717-9052-005b0797a6c8': 'microTech',
-      '041ce610-a269-4a32-9722-89e9fa34b43e': 'Stanton',
-      '5cc84896-45e8-41e4-b173-4ddfbcf0d0cc': 'Aberdeen',
-      '4c220bba-832f-46d9-a8f7-32cbfb5bf1e8': 'Daymar'
+      // Stanton system
+      '8af309da-4560-48df-8223-ddd02c016fb3': 'Stanton',
+      // Planets
+      '52a77839-4e55-4cdd-bdd3-ac7bb9626b03': 'Hurston',
+      '20f3f4d3-d6fb-4f8d-9e56-df6308fce7a5': 'Crusader',
+      'a6e9252e-4c72-4e51-adbe-5e2222cc79c2': 'ArcCorp',
+      'd6fc1705-6aba-4dbe-ba24-1ea80cb8d00d': 'microTech',
+      
+      // Specific areas
+      'd191779b-ac62-4c84-90a5-7721aefb97c4': 'Hurston Area',
+      'b3557a17-1d2d-4b7b-92ef-5e20445b10ea': 'MicroTech Orbit',
+      '8e38ba99-f1cd-49df-bc4e-5ef9309b511f': 'ArcCorp City',
+      
+      // Emergency mappings for IDs found in console logs
+      '3cbf39d0-a393-4c41-83c8-86561962e36b': 'Hurston',
+      '90c3c7dc-02df-4f30-851c-dfb1a8876998': 'ArcCorp',
+      
+      // Short ID versions (first 8 chars)
+      '3cbf39d0': 'Hurston',
+      '90c3c7dc': 'ArcCorp',
+      '52a77839': 'Hurston',
+      '20f3f4d3': 'Crusader',
+      'd6fc1705': 'microTech',
+      '8af309da': 'Stanton',
+      'a6e9252e': 'ArcCorp',
+      'd191779b': 'Hurston Area',
+      'b3557a17': 'MicroTech Orbit',
+      '8e38ba99': 'ArcCorp City'
     };
     
-    // Add these to our mappings
-    Object.entries(commonMappings).forEach(([id, name]) => {
-      this.alertIdToNameMap.set(id, name);
-      console.log(`[CelestialIdMappingService] Added common mapping: ${id} → ${name}`);
-    });
+    // Add all mappings using Object.keys instead of Object.entries to avoid downlevelIteration issues
+    const keys = Object.keys(commonMappings);
+    for (let i = 0; i < keys.length; i++) {
+      const id = keys[i];
+      const name = commonMappings[id];
+      this.addAlertIdMapping(id, name);
+      console.log(`[CelestialIdMappingService] Added common mapping: ${id} -> ${name}`);
+    }
   }
   
-  public static initializeCommonMappings(): void {
-    CelestialIdMappingService.getInstance().initializeCommonMappings();
+  /**
+   * Returns all celestial object names mapped to their UUIDs
+   */
+  public static getAllIdNameMap(): Record<string, string> {
+    const instance = CelestialIdMappingService.getInstance();
+    const result: Record<string, string> = {};
+    
+    // Convert map entries to a regular object manually to avoid iteration issues
+    instance.alertIdToNameMap.forEach((value, key) => {
+      result[key] = value;
+    });
+    
+    return result;
+  }
+
+  /**
+   * Gets all current celestial name mappings
+   */
+  getAllMappings(): Record<string, string> {
+    // Create mappings object manually without using iteration methods
+    const mappings: Record<string, string> = {};
+    
+    // Use forEach which is supported in ES5
+    this.alertIdToNameMap.forEach((value, key) => {
+      mappings[key] = value;
+    });
+    
+    return mappings;
+  }
+  
+  /**
+   * Returns all stored IDs in the mapping service
+   */
+  public static getAllStoredIds(): string[] {
+    const instance = CelestialIdMappingService.getInstance();
+    const keys: string[] = [];
+    
+    // Use forEach to avoid ES2015 iteration issues
+    instance.alertIdToNameMap.forEach((_, key) => {
+      keys.push(key);
+    });
+    
+    return keys;
+  }
+
+  // Update the existing set method to also maintain our array
+  public set(alertId: string, celestialName: string): void {
+    this.alertIdToNameMap.set(alertId, celestialName);
+    if (!this.storedIds.includes(alertId)) {
+      this.storedIds.push(alertId);
+    }
   }
 }
 
