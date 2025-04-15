@@ -922,7 +922,76 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
   
   // Calculate path width based on camera distance to stay visible at all distances
   const cameraDistance = camera.position.length();
-  const pathWidth = Math.max(3, Math.min(10, cameraDistance * 0.25));
+  const pathWidth = visualization?.useConstantSize 
+    ? 5 // Use constant size if flagged
+    : Math.max(3, Math.min(10, cameraDistance * 0.25));
+    
+  // Helper function to calculate the total length of a route
+  const calculateRouteDistance = (curve: THREE.Curve<THREE.Vector3>): number => {
+    const segments = 100;
+    let totalDistance = 0;
+    let prevPoint = curve.getPoint(0);
+    
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      const point = curve.getPoint(t);
+      totalDistance += point.distanceTo(prevPoint);
+      prevPoint = point;
+    }
+    
+    return totalDistance;
+  };
+
+  useEffect(() => {
+    if (!visualization || !plumeGroupRef.current) return;
+    
+    const plumeGroup = plumeGroupRef.current;
+    
+    // Default: Hide plume
+    plumeGroup.visible = false;
+    
+    // Position plume at the appropriate location
+    if (visualization.alertData && splinePath) {
+      const alertData = visualization.alertData;
+      
+      // Determine position based on alert type
+      let position;
+      
+      if (alertData.useDestinationPosition) {
+        // For non-interdiction alerts, position at destination
+        position = splinePath.getPoint(1.0); // End of path (destination)
+        plumeGroup.visible = true;
+      } else if (alertData.type === 'interdiction' && visualization.distanceValue !== undefined && visualization.distanceValue !== null) {
+        // For interdiction with distance, calculate position along the route
+        let t;
+        if (alertData.useDefaultPosition) {
+          // Use default 50% position for alerts without specific distance
+          t = 0.5;
+        } else {
+          // Calculate normalized position based on distance traveled
+          // This converts the distance value to a percentage along the path
+          const fullDistance = calculateRouteDistance(splinePath);
+          t = Math.min(1, Math.max(0, visualization.distanceValue / fullDistance));
+        }
+        
+        // Get position along the spline
+        position = splinePath.getPoint(t);
+        plumeGroup.visible = true;
+      }
+      
+      // Apply position if found
+      if (position) {
+        plumeGroup.position.copy(position);
+        
+        // Handle constant size for the plume
+        if (visualization.useConstantSize) {
+          // Scale based on camera distance to maintain constant screen size
+          const constantScale = cameraDistance * 0.008;
+          plumeGroup.scale.set(constantScale, constantScale, constantScale);
+        }
+      }
+    }
+  }, [visualization, splinePath, cameraDistance]);
   
   return (
     <group>

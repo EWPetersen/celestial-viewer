@@ -20,6 +20,7 @@ export interface RouteVisualization {
   distanceValue?: number | null;
   distanceUnit?: DistanceUnit;
   activityLevel?: number;
+  useConstantSize?: boolean;
 }
 
 // Define visualization colors for different route types
@@ -81,14 +82,16 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
       console.log(`[RouteVisualization] Interdiction alert with distance: ${distanceValue} ${distanceUnit}`);
     } else {
       console.warn(`[RouteVisualization] Interdiction alert missing distance: ${alert.id}`);
-      // For alerts with missing distance, use a custom property to signal we want
-      // to position at 50% of the route. StarMap.tsx will handle this special case.
+      // For alerts with missing distance, position at 50% of route by default
       alert.useDefaultPosition = true;
       
-      // We'll still set a default distance value that gets overridden in the render code
+      // Set default to 50% along the route
       distanceValue = 0.5;
       distanceUnit = 'km';
     }
+  } else {
+    // For non-interdiction alerts (like PvP), place at destination
+    alert.useDestinationPosition = true;
   }
   
   return {
@@ -102,7 +105,8 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
     pathWidth: 2,
     distanceValue: distanceValue,
     distanceUnit: distanceUnit,
-    activityLevel: calculateActivityLevel(alert)
+    activityLevel: calculateActivityLevel(alert),
+    useConstantSize: true // Enable constant sizing regardless of zoom level
   };
 };
 

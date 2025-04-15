@@ -125,37 +125,50 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
     const isDestinationLagrange = destinationType === 'lagrangepoint';
     const isOriginJumpPoint = originType === 'jumppoint';
     const isDestinationJumpPoint = destinationType === 'jumppoint';
+    const isOriginStation = originType?.includes('station');
+    const isDestinationStation = destinationType?.includes('station');
+    const isOriginCommArray = originType === 'commarray';
+    const isDestinationCommArray = destinationType === 'commarray';
     
-    // NEW RULE: Allow unrestricted travel between planets, Lagrange points, and jump points
-    // If either origin or destination is a planet, Lagrange point, or jump point, they can travel between each other
-    if ((isOriginPlanet || isOriginLagrange || isOriginJumpPoint) && 
-        (isDestinationPlanet || isDestinationLagrange || isDestinationJumpPoint)) {
-      // Allow travel between these entity types, skip parent checks
-      console.log('Allowing travel between planet/Lagrange point/jump point');
+    // High-level entities that can freely travel to each other if line of sight exists
+    const isOriginHighLevel = isOriginPlanet || isOriginLagrange || isOriginJumpPoint;
+    const isDestinationHighLevel = isDestinationPlanet || isDestinationLagrange || isDestinationJumpPoint;
+    
+    // Child entities that require special travel rules
+    const isOriginChild = isOriginMoon || isOriginStation || isOriginCommArray;
+    const isDestinationChild = isDestinationMoon || isDestinationStation || isDestinationCommArray;
+    
+    // Rule 1: High-level entities can travel to other high-level entities
+    if (isOriginHighLevel && isDestinationHighLevel) {
+      console.log('Allowing travel between high-level entities (planets, lagrange points, jump points)');
+      // Allow travel, skip additional parent checks
     }
-    // If one is a planet and one is a moon, check if the moon belongs to that planet
-    else if (isOriginPlanet && isDestinationMoon) {
-      if (destinationParentId !== origin.id) {
-        return false; // Can't travel to a moon of a different planet
+    // Rule 2: High-level to child travel - allow travel only to children of same high-level entity
+    else if (isOriginHighLevel && isDestinationChild) {
+      if (isOriginPlanet && destinationParentId === origin.id) {
+        console.log('Allowing travel from planet to its own child');
+        // Allow travel from a planet to its own children
+      } else {
+        console.log('Blocking travel from high-level entity to a child of a different parent');
+        return false; // Cannot travel from a high-level entity to a child of a different parent
       }
     }
-    else if (isDestinationPlanet && isOriginMoon) {
-      if (originParentId !== destination.id) {
-        return false; // Can't travel from a moon to a different planet
+    // Rule 3: Child to high-level travel - child can travel to its parent or any high-level entity
+    else if (isOriginChild && isDestinationHighLevel) {
+      if (isDestinationPlanet && originParentId === destination.id) {
+        console.log('Allowing travel from child to its parent planet');
+        // Allow travel from a child to its parent planet (handled below)
       }
+      console.log('Allowing travel from child to any high-level entity');
+      // Allow travel from any child to any high-level entity
     }
-    // If both are moons, they must have the same parent planet
-    else if (isOriginMoon && isDestinationMoon) {
+    // Rule 4: Child to child travel - can only travel to other children of the same parent
+    else if (isOriginChild && isDestinationChild) {
       if (originParentId !== destinationParentId) {
-        return false; // Can't travel between moons of different planets
+        console.log('Blocking travel between children of different parents');
+        return false; // Cannot travel between children of different parents
       }
-    }
-    // For other celestial body types (station types, other POIs)
-    else {
-      // For POIs, check if they have the same parent
-      if (originParentId !== destinationParentId) {
-        return false; // Must have same parent for direct travel
-      }
+      console.log('Allowing travel between children of the same parent');
     }
     
     // Get the positions
@@ -449,12 +462,55 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
       };
       
       // Set the camera target to focus on this position
-      useAppStore.getState().setCameraTarget({
+      const appStore = useAppStore.getState();
+      
+      // First set the camera target
+      appStore.setCameraTarget({
         x: alertPosition.x,
         y: alertPosition.y,
         z: alertPosition.z
       });
+      
+      // Then select the closest celestial body to show context
+      const closestBody = findClosestCelestialBody(alertPosition);
+      if (closestBody) {
+        // First give time for the camera target to update
+        setTimeout(() => {
+          // Then trigger the camera controller to animate to this position
+          selectCelestialBody(null); // Clear selection first
+          setTimeout(() => {
+            // Then focus on the alert position by selecting the celestial body
+            if (closestBody.id) {
+              selectCelestialBody(closestBody.id);
+            }
+          }, 10);
+        }, 10);
+      }
     }
+  };
+  
+  // Helper function to find the closest celestial body to a position
+  const findClosestCelestialBody = (position: Vector3) => {
+    if (!celestialSystem) return null;
+    
+    let closestBody = null;
+    let closestDistance = Infinity;
+    
+    // Check all celestial bodies
+    for (const body of celestialSystem.celestialBodies) {
+      const distance = Math.sqrt(
+        Math.pow(body.position.x - position.x, 2) +
+        Math.pow(body.position.y - position.y, 2) +
+        Math.pow(body.position.z - position.z, 2)
+      );
+      
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestBody = body;
+      }
+    }
+    
+    return closestBody;
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -545,7 +601,7 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
               setDistanceWarning(warning);
             }
           } else {
-            setLineOfSightError("Direct travel not possible: Celestial bodies must share the same parent. Planets can travel to each other, and moons can only travel to their parent planet or to other moons of the same planet.");
+            setLineOfSightError("Direct travel not possible: Higher level entities (planets, jump points, lagrange points) can travel to each other, but cannot travel directly to children (moons, stations, comm arrays) of other parents. Children can only travel to their parent or to other children of the same parent.");
             if (tempRouteVisualization) {
               removeRouteVisualization(tempRouteVisualization);
               setTempRouteVisualization(null);
@@ -585,7 +641,7 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
               setDistanceWarning(warning);
             }
           } else {
-            setLineOfSightError("Direct travel not possible: Celestial bodies must share the same parent. Planets can travel to each other, and moons can only travel to their parent planet or to other moons of the same planet.");
+            setLineOfSightError("Direct travel not possible: Higher level entities (planets, jump points, lagrange points) can travel to each other, but cannot travel directly to children (moons, stations, comm arrays) of other parents. Children can only travel to their parent or to other children of the same parent.");
             if (tempRouteVisualization) {
               removeRouteVisualization(tempRouteVisualization);
               setTempRouteVisualization(null);
@@ -683,7 +739,7 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
     if (formData.type === 'interdiction' && formData.originId && formData.destinationId) {
       const hasLineOfSight = checkLineOfSight(formData.originId, formData.destinationId);
       if (!hasLineOfSight) {
-        setLineOfSightError("Direct travel not possible: Celestial bodies must share the same parent. Planets can travel to each other, and moons can only travel to their parent planet or to other moons of the same planet.");
+        setLineOfSightError("Direct travel not possible: Higher level entities (planets, jump points, lagrange points) can travel to each other, but cannot travel directly to children (moons, stations, comm arrays) of other parents. Children can only travel to their parent or to other children of the same parent.");
         
         // Find the celestial bodies to provide a more helpful error
         const originBody = celestialSystem?.celestialBodies.find(body => body.id === formData.originId);
