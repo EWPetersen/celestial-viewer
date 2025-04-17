@@ -65,10 +65,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 407153.0,
-              "position_y": -181415.0,
-              "position_z": 59334.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -107,10 +111,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 308707.0,
-              "position_y": -163530.0,
-              "position_z": 21711.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -149,10 +157,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 444929.0,
-              "position_y": -179070.0,
-              "position_z": 46912.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -191,10 +203,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 333921.0,
-              "position_y": -180573.0,
-              "position_z": 16047.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -209,10 +225,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 7000000.0,
-          "position_y": 0.0,
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton1_l2",
@@ -225,10 +245,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -7000000.0,
-          "position_y": 0.0,
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton1_l3",
@@ -241,10 +265,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 0.0,
-          "position_y": 7000000.0,
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton1_l4",
@@ -257,10 +285,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 3500000.0,
-          "position_y": 6062500.0,
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton1_l5",
@@ -273,10 +305,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -3500000.0,
-          "position_y": 6062500.0,
-          "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton1_teasa_spaceport",
@@ -289,9 +325,9 @@
           "obstructionRadius": 20000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1007619.0,
-          "position_y": -757654.0,
-          "position_z": 123397.0,
+          "position_x": 1081535.0,
+          "position_y": -628066.0,
+          "position_z": 24196.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -305,9 +341,9 @@
           "obstructionRadius": 18000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 582033.0,
-          "position_y": -360100.0,
-          "position_z": 4036.0,
+          "position_x": 536690.0,
+          "position_y": -381320.0,
+          "position_z": 95894.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -321,9 +357,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1322633.0,
-          "position_y": -780062.0,
-          "position_z": 185933.0,
+          "position_x": 1055414.0,
+          "position_y": -770003.0,
+          "position_z": 93895.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -337,9 +373,9 @@
           "obstructionRadius": 0.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 10000.0,
-          "position_x": 1339297.0,
-          "position_y": -796586.0,
-          "position_z": 72497.0,
+          "position_x": 1441531.0,
+          "position_y": -763104.0,
+          "position_z": 68019.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -356,10 +392,14 @@
           "qt_travel_alt": 25000,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 373544.0,
-          "position_y": -231903.0,
-          "position_z": 69969.0,
-          "position_source": "derived_from_parent"
+          "position_x": 758384.1300201416,
+          "position_y": -636359.9915390015,
+          "position_z": 24000.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -421,10 +461,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 422701.0,
-              "position_y": -216377.0,
-              "position_z": 59896.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -463,10 +507,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 324484.0,
-              "position_y": -169851.0,
-              "position_z": 15295.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -508,10 +556,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 312019.0,
-              "position_y": -216049.0,
-              "position_z": 72832.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -526,10 +578,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 7000000.0,
-          "position_y": 0.0,
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton2_l2",
@@ -542,10 +598,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -7000000.0,
-          "position_y": 0.0,
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton2_l3",
@@ -558,10 +618,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 0.0,
-          "position_y": 7000000.0,
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton2_l4",
@@ -574,10 +638,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 3500000.0,
-          "position_y": 6062500.0,
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton2_l5",
@@ -590,10 +658,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -3500000.0,
-          "position_y": 6062500.0,
-          "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton2_seraphim",
@@ -606,9 +678,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 643631.0,
-          "position_y": -394829.0,
-          "position_z": 84517.0,
+          "position_x": 583551.0,
+          "position_y": -287239.0,
+          "position_z": 43156.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -622,9 +694,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1268145.0,
-          "position_y": -618992.0,
-          "position_z": 70316.0,
+          "position_x": 1109061.0,
+          "position_y": -792846.0,
+          "position_z": 141878.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -638,9 +710,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1129583.0,
-          "position_y": -518203.0,
-          "position_z": 45495.0,
+          "position_x": 1056362.0,
+          "position_y": -504233.0,
+          "position_z": 31564.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -654,9 +726,9 @@
           "obstructionRadius": 8000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1046915.0,
-          "position_y": -681342.0,
-          "position_z": 148600.0,
+          "position_x": 1453163.0,
+          "position_y": -515342.0,
+          "position_z": 36344.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -670,9 +742,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1105770.0,
-          "position_y": -766110.0,
-          "position_z": 144351.0,
+          "position_x": 1097725.0,
+          "position_y": -777927.0,
+          "position_z": 156690.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -686,9 +758,9 @@
           "obstructionRadius": 0.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 10000.0,
-          "position_x": 1264314.0,
-          "position_y": -657287.0,
-          "position_z": 187079.0,
+          "position_x": 1089241.0,
+          "position_y": -555793.0,
+          "position_z": 23218.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -705,10 +777,14 @@
           "qt_travel_alt": 25000,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 423557.0,
-          "position_y": -195279.0,
-          "position_z": 47952.0,
-          "position_source": "derived_from_parent"
+          "position_x": 758384.1300201416,
+          "position_y": -636359.9915390015,
+          "position_z": 24000.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -768,10 +844,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 327396.0,
-              "position_y": -206209.0,
-              "position_z": 73268.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -810,10 +890,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 423577.0,
-              "position_y": -206122.0,
-              "position_z": 31685.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -828,10 +912,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 7000000.0,
-          "position_y": 0.0,
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton3_l2",
@@ -844,10 +932,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -7000000.0,
-          "position_y": 0.0,
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton3_l3",
@@ -860,10 +952,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 0.0,
-          "position_y": 7000000.0,
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton3_l4",
@@ -876,10 +972,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 3500000.0,
-          "position_y": 6062500.0,
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton3_l5",
@@ -892,10 +992,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -3500000.0,
-          "position_y": 6062500.0,
-          "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton3_baijini_point",
@@ -908,9 +1012,9 @@
           "obstructionRadius": 18000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1469243.0,
-          "position_y": -710037.0,
-          "position_z": 18693.0,
+          "position_x": 1211629.0,
+          "position_y": -767568.0,
+          "position_z": 175566.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -924,9 +1028,9 @@
           "obstructionRadius": 0.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 10000.0,
-          "position_x": 1474265.0,
-          "position_y": -530536.0,
-          "position_z": 128475.0,
+          "position_x": 1141091.0,
+          "position_y": -694790.0,
+          "position_z": 16353.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -943,10 +1047,14 @@
           "qt_travel_alt": 25000,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 341390.0,
-          "position_y": -225250.0,
-          "position_z": 63953.0,
-          "position_source": "derived_from_parent"
+          "position_x": 758384.1300201416,
+          "position_y": -636359.9915390015,
+          "position_z": 24000.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1006,10 +1114,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 360458.0,
-              "position_y": -211194.0,
-              "position_z": 32988.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -1048,10 +1160,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 300388.0,
-              "position_y": -151764.0,
-              "position_z": 59743.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -1090,10 +1206,14 @@
               "qt_travel_alt": 10000,
               "jurisdiction": "UEE",
               "adoptionRadius": 20000.0,
-              "position_x": 407588.0,
-              "position_y": -193671.0,
-              "position_z": 69728.0,
-              "position_source": "derived_from_parent"
+              "position_x": 758384.1300201416,
+              "position_y": -636359.9915390015,
+              "position_z": 24000.0,
+              "rotation_x": 1.0,
+              "rotation_y": 0.0,
+              "rotation_z": 0.0,
+              "rotation_w": 0.0,
+              "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
             }
           ]
         },
@@ -1108,10 +1228,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 7000000.0,
-          "position_y": 0.0,
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton4_l2",
@@ -1124,10 +1248,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -7000000.0,
-          "position_y": 0.0,
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton4_l3",
@@ -1140,10 +1268,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 0.0,
-          "position_y": 7000000.0,
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton4_l4",
@@ -1156,10 +1288,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": 3500000.0,
-          "position_y": 6062500.0,
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
           "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton4_l5",
@@ -1172,10 +1308,14 @@
           "obstructionRadius": 10000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 25000.0,
-          "position_x": -3500000.0,
-          "position_y": 6062500.0,
-          "position_z": 0.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         },
         {
           "id": "stanton4_port_tressler",
@@ -1188,9 +1328,9 @@
           "obstructionRadius": 18000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 503140.0,
-          "position_y": -263630.0,
-          "position_z": 74642.0,
+          "position_x": 592125.0,
+          "position_y": -339786.0,
+          "position_z": 35142.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -1204,9 +1344,9 @@
           "obstructionRadius": 12000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1184288.0,
-          "position_y": -781956.0,
-          "position_z": 90019.0,
+          "position_x": 1476933.0,
+          "position_y": -729321.0,
+          "position_z": 175846.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -1220,9 +1360,9 @@
           "obstructionRadius": 0.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 10000.0,
-          "position_x": 1477248.0,
-          "position_y": -628259.0,
-          "position_z": 135869.0,
+          "position_x": 1034690.0,
+          "position_y": -570413.0,
+          "position_z": 7559.0,
           "position_source": "derived_from_parent"
         },
         {
@@ -1239,10 +1379,14 @@
           "qt_travel_alt": 25000,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 315784.0,
-          "position_y": -184098.0,
-          "position_z": 38670.0,
-          "position_source": "derived_from_parent"
+          "position_x": 758384.1300201416,
+          "position_y": -636359.9915390015,
+          "position_z": 24000.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1257,10 +1401,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 7000000.0,
-      "position_y": 0.0,
+      "position_x": 20215824238.186035,
+      "position_y": 33467065007.614746,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "hur_l1",
@@ -1273,10 +1421,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1070642.0,
-          "position_y": -546799.0,
-          "position_z": 189162.0,
-          "position_source": "derived_from_parent"
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1291,10 +1443,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -7000000.0,
-      "position_y": 0.0,
+      "position_x": -20858376485.43327,
+      "position_y": -2931474402.05844,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "hur_l2",
@@ -1307,10 +1463,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1310330.0,
-          "position_y": -670468.0,
-          "position_z": 179144.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1325,10 +1485,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 0.0,
-      "position_y": 7000000.0,
+      "position_x": 18962164826.094032,
+      "position_y": 2664965040.501728,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "hur_l3",
@@ -1341,10 +1505,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1362027.0,
-          "position_y": -598920.0,
-          "position_z": 123111.0,
-          "position_source": "derived_from_parent"
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1359,10 +1527,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 3500000.0,
-      "position_y": 6062500.0,
+      "position_x": -20971933230.165882,
+      "position_y": 38045504032.01936,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "hur_l4",
@@ -1375,10 +1547,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1284817.0,
-          "position_y": -556901.0,
-          "position_z": 8691.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1393,10 +1569,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -3500000.0,
-      "position_y": 6062500.0,
-      "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "position_x": -9890422516.169678,
+      "position_y": -27173732225.140015,
+      "position_z": 8076.625,
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "hur_l5",
@@ -1409,10 +1589,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1487337.0,
-          "position_y": -532620.0,
-          "position_z": 108994.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1427,10 +1611,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 7000000.0,
-      "position_y": 0.0,
+      "position_x": 20215824238.186035,
+      "position_y": 33467065007.614746,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "cru_l1",
@@ -1443,10 +1631,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1228813.0,
-          "position_y": -548597.0,
-          "position_z": 105153.0,
-          "position_source": "derived_from_parent"
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1461,10 +1653,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -7000000.0,
-      "position_y": 0.0,
+      "position_x": -20858376485.43327,
+      "position_y": -2931474402.05844,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": []
     },
     {
@@ -1478,10 +1674,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 0.0,
-      "position_y": 7000000.0,
+      "position_x": 18962164826.094032,
+      "position_y": 2664965040.501728,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": []
     },
     {
@@ -1495,10 +1695,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 3500000.0,
-      "position_y": 6062500.0,
+      "position_x": -20971933230.165882,
+      "position_y": 38045504032.01936,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "cru_l4",
@@ -1511,10 +1715,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1304645.0,
-          "position_y": -699129.0,
-          "position_z": 63246.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1529,10 +1737,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -3500000.0,
-      "position_y": 6062500.0,
-      "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "position_x": -9890422516.169678,
+      "position_y": -27173732225.140015,
+      "position_z": 8076.625,
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "cru_l5",
@@ -1545,10 +1757,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1142500.0,
-          "position_y": -632468.0,
-          "position_z": 166723.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1563,10 +1779,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 7000000.0,
-      "position_y": 0.0,
+      "position_x": 20215824238.186035,
+      "position_y": 33467065007.614746,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "arc_l1",
@@ -1579,10 +1799,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1427733.0,
-          "position_y": -541381.0,
-          "position_z": 90526.0,
-          "position_source": "derived_from_parent"
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1597,10 +1821,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -7000000.0,
-      "position_y": 0.0,
+      "position_x": -20858376485.43327,
+      "position_y": -2931474402.05844,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "arc_l2",
@@ -1613,10 +1841,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1063150.0,
-          "position_y": -555384.0,
-          "position_z": 199016.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1631,10 +1863,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 0.0,
-      "position_y": 7000000.0,
+      "position_x": 18962164826.094032,
+      "position_y": 2664965040.501728,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "arc_l3",
@@ -1647,10 +1883,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1152750.0,
-          "position_y": -622067.0,
-          "position_z": 24258.0,
-          "position_source": "derived_from_parent"
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1665,10 +1905,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 3500000.0,
-      "position_y": 6062500.0,
+      "position_x": -20971933230.165882,
+      "position_y": 38045504032.01936,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "arc_l4",
@@ -1681,10 +1925,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1420995.0,
-          "position_y": -587109.0,
-          "position_z": 177668.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1699,10 +1947,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -3500000.0,
-      "position_y": 6062500.0,
-      "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "position_x": -9890422516.169678,
+      "position_y": -27173732225.140015,
+      "position_z": 8076.625,
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "arc_l5",
@@ -1715,10 +1967,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1357921.0,
-          "position_y": -500315.0,
-          "position_z": 193410.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1733,10 +1989,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 7000000.0,
-      "position_y": 0.0,
+      "position_x": 20215824238.186035,
+      "position_y": 33467065007.614746,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "mic_l1",
@@ -1749,10 +2009,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1197239.0,
-          "position_y": -626855.0,
-          "position_z": 139841.0,
-          "position_source": "derived_from_parent"
+          "position_x": 20215824238.186035,
+          "position_y": 33467065007.614746,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1767,10 +2031,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -7000000.0,
-      "position_y": 0.0,
+      "position_x": -20858376485.43327,
+      "position_y": -2931474402.05844,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "mic_l2",
@@ -1783,10 +2051,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1039866.0,
-          "position_y": -694252.0,
-          "position_z": 112814.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20858376485.43327,
+          "position_y": -2931474402.05844,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1801,10 +2073,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 0.0,
-      "position_y": 7000000.0,
+      "position_x": 18962164826.094032,
+      "position_y": 2664965040.501728,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "mic_l3",
@@ -1817,10 +2093,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1242036.0,
-          "position_y": -734750.0,
-          "position_z": 20509.0,
-          "position_source": "derived_from_parent"
+          "position_x": 18962164826.094032,
+          "position_y": 2664965040.501728,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1835,10 +2115,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": 3500000.0,
-      "position_y": 6062500.0,
+      "position_x": -20971933230.165882,
+      "position_y": 38045504032.01936,
       "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "mic_l4",
@@ -1851,10 +2135,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1164009.0,
-          "position_y": -684724.0,
-          "position_z": 137853.0,
-          "position_source": "derived_from_parent"
+          "position_x": -20971933230.165882,
+          "position_y": 38045504032.01936,
+          "position_z": 0.0,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1869,10 +2157,14 @@
       "obstructionRadius": 10000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 25000.0,
-      "position_x": -3500000.0,
-      "position_y": 6062500.0,
-      "position_z": 0.0,
-      "position_source": "derived_from_parent",
+      "position_x": -9890422516.169678,
+      "position_y": -27173732225.140015,
+      "position_z": 8076.625,
+      "rotation_x": 1.0,
+      "rotation_y": 0.0,
+      "rotation_z": 0.0,
+      "rotation_w": 0.0,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml",
       "children": [
         {
           "id": "mic_l5",
@@ -1885,10 +2177,14 @@
           "obstructionRadius": 15000.0,
           "jurisdiction": "UEE",
           "adoptionRadius": 20000.0,
-          "position_x": 1068588.0,
-          "position_y": -642012.0,
-          "position_z": 97185.0,
-          "position_source": "derived_from_parent"
+          "position_x": -9890422516.169678,
+          "position_y": -27173732225.140015,
+          "position_z": 8076.625,
+          "rotation_x": 1.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "rotation_w": 0.0,
+          "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
         }
       ]
     },
@@ -1927,10 +2223,14 @@
       "junction": "magnus_stanton_jp",
       "jurisdiction": "UEE",
       "adoptionRadius": 35000.0,
-      "position_x": 62472644952.0,
-      "position_y": -310830767.0,
-      "position_z": 17185713395.0,
-      "position_source": "derived_from_parent"
+      "position_x": -62284282868.18451,
+      "position_y": 23467602586.872375,
+      "position_z": 20198396608.0,
+      "rotation_x": 0.30793616,
+      "rotation_y": -0.14839508,
+      "rotation_z": -0.027259013,
+      "rotation_w": 0.93936741,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
     },
     {
       "id": "stanton_terra_jp",
@@ -1945,10 +2245,14 @@
       "junction": "terra_stanton_jp",
       "jurisdiction": "UEE",
       "adoptionRadius": 35000.0,
-      "position_x": 68958080946.0,
-      "position_y": 25685439573.0,
-      "position_z": 24751341082.0,
-      "position_source": "derived_from_parent"
+      "position_x": 51118221616.90332,
+      "position_y": -5269981303.113817,
+      "position_z": -4339551619.0,
+      "rotation_x": 0.84275234,
+      "rotation_y": -0.15849306,
+      "rotation_z": -0.091506034,
+      "rotation_w": -0.5062362,
+      "position_source": "xml:C:\\SCData\\Data\\ObjectContainers\\PU\\system\\stanton\\stantonsystem\\stantonsystem.xml"
     },
     {
       "id": "ins_jericho",
@@ -1961,9 +2265,9 @@
       "obstructionRadius": 15000.0,
       "jurisdiction": "UEE",
       "adoptionRadius": 20000.0,
-      "position_x": 1178062.0,
-      "position_y": -600454.0,
-      "position_z": 170287.0,
+      "position_x": 1004318.0,
+      "position_y": -606777.0,
+      "position_z": 158649.0,
       "position_source": "derived_from_parent"
     },
     {
@@ -1979,9 +2283,9 @@
       "jurisdiction": "UEE",
       "adoptionRadius": 35000.0,
       "habitable": true,
-      "position_x": 1480473.0,
-      "position_y": -751236.0,
-      "position_z": 148493.0,
+      "position_x": 1133471.0,
+      "position_y": -524677.0,
+      "position_z": 78565.0,
       "position_source": "derived_from_parent"
     },
     {
@@ -1998,9 +2302,9 @@
       "adoptionRadius": 35000.0,
       "habitable": true,
       "associated_jumppoint": "stanton_pyro_jp",
-      "position_x": 1365960.0,
-      "position_y": -539868.0,
-      "position_z": 79807.0,
+      "position_x": 1187180.0,
+      "position_y": -545028.0,
+      "position_z": 38787.0,
       "position_source": "derived_from_parent"
     },
     {
@@ -2017,9 +2321,9 @@
       "adoptionRadius": 35000.0,
       "habitable": true,
       "associated_jumppoint": "stanton_magnus_jp",
-      "position_x": 1361304.0,
-      "position_y": -573044.0,
-      "position_z": 191133.0,
+      "position_x": 1306167.0,
+      "position_y": -591339.0,
+      "position_z": 45482.0,
       "position_source": "derived_from_parent"
     },
     {
@@ -2036,9 +2340,9 @@
       "adoptionRadius": 35000.0,
       "habitable": true,
       "associated_jumppoint": "stanton_terra_jp",
-      "position_x": 1387235.0,
-      "position_y": -612896.0,
-      "position_z": 165287.0,
+      "position_x": 1215979.0,
+      "position_y": -540134.0,
+      "position_z": 30115.0,
       "position_source": "derived_from_parent"
     }
   ],
