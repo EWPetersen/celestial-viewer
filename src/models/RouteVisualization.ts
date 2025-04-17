@@ -33,40 +33,9 @@ export const routeTypeColors = {
 
 // Helper to create a route visualization from alert data
 export const createAlertVisualization = (alert: any): RouteVisualization => {
-  // Get IDs directly from alert without any transformation
+  // Get origin and destination directly from alert
   const originId = alert.originId || '';
   const destinationId = alert.destinationId || alert.locationId || '';
-  
-  // Log the creation of the visualization only if IDs are missing
-  if (!originId || !destinationId) {
-    console.warn(`[RouteVisualization] Creating visualization for alert: ${alert.id}, missing ${!originId ? 'origin' : ''}${(!originId && !destinationId) ? ' and ' : ''}${!destinationId ? 'destination' : ''} ID`);
-  }
-  
-  // Try to convert IDs to system IDs via mapping service
-  let systemOriginId = CelestialIdMappingService.convertAlertIdToSystemId(originId) || originId;
-  let systemDestinationId = CelestialIdMappingService.convertAlertIdToSystemId(destinationId) || destinationId;
-  
-  // If either ID is missing, try to use the other one as a fallback
-  if (!systemOriginId && systemDestinationId) {
-    console.log(`[RouteVisualization] Using destination as fallback for missing origin ID for alert: ${alert.id}`);
-    systemOriginId = systemDestinationId;
-  } else if (systemOriginId && !systemDestinationId) {
-    console.log(`[RouteVisualization] Using origin as fallback for missing destination ID for alert: ${alert.id}`);
-    systemDestinationId = systemOriginId;
-  } else if (!systemOriginId && !systemDestinationId) {
-    // Last resort fallback - try to find Stanton (main system) ID
-    const stantonId = CelestialIdMappingService.findStantonId();
-    if (stantonId) {
-      console.log(`[RouteVisualization] Using Stanton as fallback for missing IDs for alert: ${alert.id}`);
-      systemOriginId = stantonId;
-      systemDestinationId = stantonId;
-    }
-  }
-  
-  // Only log when mapping was successful
-  if (systemOriginId !== originId || systemDestinationId !== destinationId) {
-    console.log(`[RouteVisualization] Mapped IDs - Origin: ${originId} -> ${systemOriginId}, Dest: ${destinationId} -> ${systemDestinationId}`);
-  }
   
   // Ensure distance value is included for interdiction alerts
   // This is critical for correct positioning of the alert ping
@@ -78,10 +47,7 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
     if (alert.distanceTraveled !== undefined && alert.distanceTraveled !== null) {
       distanceValue = alert.distanceTraveled;
       distanceUnit = alert.distanceUnit || 'km';
-      
-      console.log(`[RouteVisualization] Interdiction alert with distance: ${distanceValue} ${distanceUnit}`);
     } else {
-      console.warn(`[RouteVisualization] Interdiction alert missing distance: ${alert.id}`);
       // For alerts with missing distance, position at 50% of route by default
       alert.useDefaultPosition = true;
       
@@ -96,8 +62,8 @@ export const createAlertVisualization = (alert: any): RouteVisualization => {
   
   return {
     id: `alert-${alert.id}`,
-    originId: systemOriginId,
-    destinationId: systemDestinationId,
+    originId: originId,
+    destinationId: destinationId,
     routeType: alert.type,
     color: routeTypeColors[alert.type as RouteType],
     pulsing: true,

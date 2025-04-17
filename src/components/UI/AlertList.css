@@ -4,6 +4,7 @@
   width: 300px;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
@@ -164,10 +165,12 @@
 
 .alert-list {
   flex: 1;
-  padding: 0;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .alert-item-link {
@@ -214,7 +217,7 @@
 
 .alert-content {
   flex: 1;
-  min-width: 0; /* Allow content to shrink */
+  min-width: 0;
   overflow: hidden;
 }
 

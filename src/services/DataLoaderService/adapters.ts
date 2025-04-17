@@ -14,6 +14,7 @@ export function entityToCelestialBody(
   const celestialBody: CelestialBody = {
     id: entity.id,
     name: entity.name,
+    displayName: entity.display_name,
     type: entity.type,
     parentId: entity.parent,
     radius: entity.size / 2, // Convert diameter to radius
@@ -22,8 +23,9 @@ export function entityToCelestialBody(
       y: entity.absolutePosition.y,
       z: entity.absolutePosition.z
     },
-    // Add other properties as needed
-    atmosphere: entity.atmoHeight > 0
+    // Convert atmoHeight from km to meters for consistent rendering
+    atmosphere: entity.atmoHeight ? entity.atmoHeight > 0 : false,
+    atmosphereHeight: entity.atmoHeight ? entity.atmoHeight * 1000 : 0 // Convert km to meters
   };
   
   return celestialBody;
@@ -42,6 +44,7 @@ export function entityToPointOfInterest(
   const poi: PointOfInterest = {
     id: entity.id,
     name: entity.name,
+    displayName: entity.display_name,
     type: entity.type,
     parentId: entity.parent,
     size: entity.size,
@@ -49,7 +52,8 @@ export function entityToPointOfInterest(
       x: entity.absolutePosition.x,
       y: entity.absolutePosition.y,
       z: entity.absolutePosition.z
-    }
+    },
+    description: entity.description
   };
   
   return poi;
@@ -64,9 +68,10 @@ export function entityToJumpPoint(entity: ProcessedEntity): JumpPoint {
   const jumpPoint: JumpPoint = {
     id: entity.id,
     name: entity.name,
+    displayName: entity.display_name,
     type: 'jumppoint',
     parentId: entity.parent,
-    destinationSystem: 'Unknown', // Would need additional data to determine this
+    destinationSystem: entity.description || 'Unknown',
     position: {
       x: entity.absolutePosition.x,
       y: entity.absolutePosition.y,
@@ -131,6 +136,7 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
       case 'landingzone':
       case 'reststop':
       case 'commarray':
+      case 'lagrangepoint':
         pointsOfInterest.push(entityToPointOfInterest(entity, systemData));
         break;
         
@@ -143,7 +149,8 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
   // Create the CelestialSystem object
   const celestialSystem: CelestialSystem = {
     systemName: rootEntity.name,
-    description: `The ${rootEntity.name} system`,
+    systemDisplayName: rootEntity.display_name,
+    description: rootEntity.description || `The ${rootEntity.name} system`,
     rootId: systemData.root,
     starType: 'G-type', // This would need to come from additional data
     coordinates: {
@@ -153,7 +160,8 @@ export function systemDataToCelestialSystem(systemData: SystemData): CelestialSy
     },
     celestialBodies,
     jumpPoints,
-    pointsOfInterest
+    pointsOfInterest,
+    jurisdiction: rootEntity.jurisdiction || 'Unknown'
   };
   
   return celestialSystem;

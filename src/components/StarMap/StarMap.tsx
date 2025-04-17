@@ -259,6 +259,21 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
   
   const { camera, scene, clock } = useThree();
   
+  // Add route visualization to the alerts
+  useEffect(() => {
+    if (!visualization) return;
+    
+    // Check if this is a new visualization that we should focus the camera on
+    if (visualization.alertData && !visualization.alertData.hasOwnProperty('isNew')) {
+      // Mark as new to focus camera on it
+      visualization.alertData.isNew = true;
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[StarMap] New alert visualization detected: ${visualization.id}`);
+      }
+    }
+  }, [visualization]);
+  
   // Helper function to compare path points
   const pathPointsEqual = (a: THREE.Vector3[], b: THREE.Vector3[]): boolean => {
     if (a.length !== b.length) return false;
@@ -582,82 +597,6 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       }
     }
     
-    // If we have a distance value, position the plume
-    if (visualization.distanceValue !== null && visualization.distanceValue !== undefined && plumeGroupRef.current && straightPath) {
-      // Convert distance to meters for calculation
-      const distanceInMeters = convertToMeters(
-        visualization.distanceValue !== undefined && visualization.distanceValue !== null 
-          ? visualization.distanceValue 
-          : 0,
-        visualization.distanceUnit || 'km' as DistanceUnit
-      );
-      
-      // Calculate position along the path as a ratio of total distance
-      const routeType = visualization.routeType || 'interdiction';
-      
-      // For interdiction alerts, properly position based on distance traveled
-      let ratio = 0;
-      if (routeType === 'interdiction') {
-        // Check if the alert has the special useDefaultPosition flag
-        if (visualization.alertData?.useDefaultPosition) {
-          // Use midpoint as default position
-          ratio = 0.5;
-          console.log(`[StarMap] Using default position (50%) for interdiction alert: ${visualization.id}`);
-        } else {
-          // Calculate distance as a fraction of total route length
-          ratio = Math.min(distanceInMeters / (routeDistance || 1), 1.0);
-          
-          // Add some basic validation to ensure ratio is valid
-          if (isNaN(ratio) || !isFinite(ratio)) {
-            console.warn(`[StarMap] Invalid ratio calculated for alert position: ${ratio}, using default 0.5`);
-            ratio = 0.5; // Use a default mid-point
-          }
-          
-          console.log(`[StarMap] Positioning interdiction alert at distance ${visualization.distanceValue} ${visualization.distanceUnit} (ratio: ${ratio.toFixed(2)}) of total distance ${(routeDistance / 1000).toFixed(1)}km`);
-        }
-      } else {
-        // For other alert types, use midpoint if no specific position
-        ratio = 0.5;
-      }
-      
-      // Position plume at the specified distance along the straight path
-      const plumePosition = straightPath.getPoint(ratio);
-      plumeGroupRef.current.position.copy(plumePosition);
-      
-      // Calculate the tangent direction for plume orientation
-      const tangent = straightPath.getTangent(ratio);
-      
-      // Orient plume to follow path direction
-      if (tangent.length() > 0) {
-        const lookAtPoint = new THREE.Vector3().addVectors(plumePosition, tangent);
-        const upVector = new THREE.Vector3(0, 1, 0);
-        
-        // Create a temporary matrix for orientation
-        const tempMatrix = new THREE.Matrix4();
-        tempMatrix.lookAt(plumePosition, lookAtPoint, upVector);
-        
-        // Set rotation from matrix
-        const tempQuaternion = new THREE.Quaternion();
-        tempQuaternion.setFromRotationMatrix(tempMatrix);
-        plumeGroupRef.current.quaternion.copy(tempQuaternion);
-      }
-      
-      // Set plume size based on activity level and camera distance
-      updatePlumeSize(
-        camera.position.distanceTo(plumePosition), 
-        visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5
-      );
-      
-      // Visibility of plume
-      plumeGroupRef.current.visible = true;
-      
-      // Update plume material color based on activity level
-      updatePlumeColor(visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5);
-    } else if (plumeGroupRef.current) {
-      // No distance specified, hide the plume
-      plumeGroupRef.current.visible = false;
-    }
-    
     // Generate chevron objects along the path
     if (chevronsGroupRef.current && straightPath) {
       // Clear any existing chevrons
@@ -947,31 +886,67 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
     
     const plumeGroup = plumeGroupRef.current;
     
-    // Default: Hide plume
+    // Default: Hide plume until we determine proper position
     plumeGroup.visible = false;
+    
+    // Only log for new/changed visualizations
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[StarMap] Processing visualization: ${visualization.id}, type: ${visualization.alertData?.type}`);
+    }
     
     // Position plume at the appropriate location
     if (visualization.alertData && splinePath) {
       const alertData = visualization.alertData;
       
-      // Determine position based on alert type
-      let position;
+      // Calculate position based on alert type
+      let position: THREE.Vector3 | null = null;
+      let t: number = 0.5; // Default position ratio (0.0 to 1.0)
       
       if (alertData.useDestinationPosition) {
         // For non-interdiction alerts, position at destination
         position = splinePath.getPoint(1.0); // End of path (destination)
         plumeGroup.visible = true;
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[StarMap] Positioning at destination point`);
+        }
       } else if (alertData.type === 'interdiction' && visualization.distanceValue !== undefined && visualization.distanceValue !== null) {
-        // For interdiction with distance, calculate position along the route
-        let t;
         if (alertData.useDefaultPosition) {
           // Use default 50% position for alerts without specific distance
           t = 0.5;
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[StarMap] Using default midpoint position`);
+          }
         } else {
           // Calculate normalized position based on distance traveled
-          // This converts the distance value to a percentage along the path
+          // Convert the distance to meters for calculation
+          const distanceInMeters = convertToMeters(
+            visualization.distanceValue !== undefined && visualization.distanceValue !== null 
+              ? visualization.distanceValue 
+              : 0,
+            visualization.distanceUnit || 'km' as DistanceUnit
+          );
+          
+          // Calculate the total route length
           const fullDistance = calculateRouteDistance(splinePath);
-          t = Math.min(1, Math.max(0, visualization.distanceValue / fullDistance));
+          
+          // Calculate the ratio - prevent edge cases with invalid values
+          if (fullDistance > 0) {
+            t = Math.min(0.999, Math.max(0.001, distanceInMeters / fullDistance));
+            
+            // In production, only log significant alerts or issues
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                `[StarMap] Alert distance: ${visualization.distanceValue} ${visualization.distanceUnit} ` +
+                `(${distanceInMeters.toExponential(2)}m), route total: ${fullDistance.toExponential(2)}m, ` +
+                `ratio: ${t.toFixed(4)}`
+              );
+            }
+          } else {
+            t = 0.5; // Default to midpoint if can't calculate
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`[StarMap] Warning: Could not calculate route distance, using midpoint.`);
+            }
+          }
         }
         
         // Get position along the spline
@@ -981,17 +956,81 @@ const SingleRouteVisualizer: React.FC<{ visualization: RouteVisualization }> = (
       
       // Apply position if found
       if (position) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[StarMap] Setting alert position: [${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}]`);
+        }
+        
         plumeGroup.position.copy(position);
         
-        // Handle constant size for the plume
+        // Calculate the tangent direction for plume orientation
+        const tangent = splinePath.getTangent(t);
+        
+        // Orient plume to follow path direction
+        if (tangent.length() > 0) {
+          const lookAtPoint = new THREE.Vector3().addVectors(position, tangent);
+          const upVector = new THREE.Vector3(0, 1, 0);
+          
+          // Create a temporary matrix for orientation
+          const tempMatrix = new THREE.Matrix4();
+          tempMatrix.lookAt(position, lookAtPoint, upVector);
+          
+          // Set rotation from matrix
+          const tempQuaternion = new THREE.Quaternion();
+          tempQuaternion.setFromRotationMatrix(tempMatrix);
+          plumeGroup.quaternion.copy(tempQuaternion);
+        }
+        
+        // Handle constant size for the plume if needed
         if (visualization.useConstantSize) {
           // Scale based on camera distance to maintain constant screen size
-          const constantScale = cameraDistance * 0.008;
+          const cameraDistance = camera.position.distanceTo(position);
+          const constantScale = Math.max(0.05, cameraDistance * 0.008);
+          
+          // Limit excessive debug logging
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[StarMap] Using scale: ${constantScale.toFixed(4)}`);
+          }
+          
           plumeGroup.scale.set(constantScale, constantScale, constantScale);
+        } else {
+          // Set plume size based on activity level and camera distance
+          updatePlumeSize(
+            camera.position.distanceTo(position), 
+            visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5
+          );
+        }
+        
+        // Update plume material color based on activity level
+        updatePlumeColor(visualization.activityLevel !== undefined ? visualization.activityLevel : 0.5);
+        
+        // Set camera target to the alert position if this is a new alert visualization
+        if (visualization.alertData.isNew) {
+          // Convert back to world coordinates for camera targeting
+          const worldPos = new THREE.Vector3(
+            position.x / SCENE_SCALE,
+            position.y / SCENE_SCALE,
+            position.z / SCENE_SCALE
+          );
+          
+          // Focus camera on the alert position
+          useAppStore.getState().setCameraTarget({
+            x: worldPos.x,
+            y: worldPos.y,
+            z: worldPos.z
+          });
+          
+          // Mark as no longer new to prevent repeated focusing
+          visualization.alertData.isNew = false;
+          
+          console.log(`[StarMap] Focusing camera on new alert at position [${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}]`);
+        }
+      } else {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[StarMap] No valid position calculated for alert visualization`);
         }
       }
     }
-  }, [visualization, splinePath, cameraDistance]);
+  }, [visualization, splinePath, camera, updatePlumeSize, updatePlumeColor]);
   
   return (
     <group>

@@ -87,8 +87,6 @@ export class RouteAlertService {
         this.celestialNameToIdMap.set(name.toLowerCase(), key);
       });
     }
-    
-    console.log(`[RouteAlertService] Initialized celestial mappings with ${this.celestialNameToIdMap.size} entries`);
   }
   
   /**
@@ -122,7 +120,7 @@ export class RouteAlertService {
         }
       }
     } catch (err) {
-      console.warn("[RouteAlertService] Error adding celestial mappings:", err);
+      // Silently handle the error
     }
   }
   
@@ -176,30 +174,21 @@ export class RouteAlertService {
       // Generate a unique ID for the alert
       const alertId = uuidv4();
       
-      // Pre-record the celestial ID mappings for this alert to ensure
-      // proper visualization without refresh needed
+      // Store names in addition to IDs for easy identification
+      let originName = '';
+      let destinationName = '';
+      let locationName = '';
+      
       if (alertData.originId) {
-        const originName = this.getCelestialNameById(alertData.originId);
-        if (originName) {
-          CelestialIdMappingService.addAlertIdMapping(alertData.originId, originName);
-          console.log(`[RouteAlertService] Pre-mapped origin ID: ${alertData.originId} -> ${originName}`);
-        }
+        originName = this.getCelestialNameById(alertData.originId) || '';
       }
       
       if (alertData.destinationId) {
-        const destName = this.getCelestialNameById(alertData.destinationId);
-        if (destName) {
-          CelestialIdMappingService.addAlertIdMapping(alertData.destinationId, destName);
-          console.log(`[RouteAlertService] Pre-mapped destination ID: ${alertData.destinationId} -> ${destName}`);
-        }
+        destinationName = this.getCelestialNameById(alertData.destinationId) || '';
       }
       
-      if (alertData.locationId && alertData.locationId !== alertData.destinationId) {
-        const locName = this.getCelestialNameById(alertData.locationId);
-        if (locName) {
-          CelestialIdMappingService.addAlertIdMapping(alertData.locationId, locName);
-          console.log(`[RouteAlertService] Pre-mapped location ID: ${alertData.locationId} -> ${locName}`);
-        }
+      if (alertData.locationId) {
+        locationName = this.getCelestialNameById(alertData.locationId) || '';
       }
       
       // Create a new alert object
@@ -211,6 +200,9 @@ export class RouteAlertService {
         originId: alertData.originId || '',
         destinationId: alertData.destinationId || '',
         locationId: alertData.locationId || '',
+        originName: originName,
+        destinationName: destinationName,
+        locationName: locationName,
         distanceTraveled: alertData.distanceTraveled,
         distanceUnit: alertData.distanceUnit,
         authorId: user.id || '',
@@ -241,9 +233,6 @@ export class RouteAlertService {
           timestamp: data.timestamp ? new Date(data.timestamp.toDate()) : new Date(),
           lastActivity: data.lastActivity ? new Date(data.lastActivity.toDate()) : new Date()
         } as RouteAlert;
-        
-        // Add celestial mappings for the newly created alert
-        this.addCelestialMappingsForAlert(createdAlert);
         
         return createdAlert;
       } else {
@@ -359,22 +348,8 @@ export class RouteAlertService {
           CelestialIdMappingService.addAlertIdMapping(id, name);
         }
       });
-      
-      // Create additional mappings based on alert repetition
-      // If the same celestial ID appears in multiple alerts, it's likely the same celestial body
-      const idFrequency: {[id: string]: number} = {};
-      
-      alerts.forEach(alert => {
-        if (alert.originId) idFrequency[alert.originId] = (idFrequency[alert.originId] || 0) + 1;
-        if (alert.destinationId) idFrequency[alert.destinationId] = (idFrequency[alert.destinationId] || 0) + 1;
-        if (alert.locationId) idFrequency[alert.locationId] = (idFrequency[alert.locationId] || 0) + 1;
-      });
-      
-      // Log the most frequent IDs for debugging
-      const sortedIds = Object.entries(idFrequency).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      console.log('[RouteAlertService] Most frequent celestial IDs:', sortedIds);
     } catch (err) {
-      console.warn('[RouteAlertService] Error processing bulk alert mappings:', err);
+      // Silently handle the error
     }
   }
   
@@ -858,12 +833,9 @@ export class RouteAlertService {
    */
   public async getAlertInteractions(alertId: string): Promise<RouteAlertInteraction[]> {
     try {
-      console.log(`Fetching interactions for alert ID: ${alertId}`);
-      
       // Check if the alert exists first
       const alert = await this.getAlertById(alertId);
       if (!alert) {
-        console.warn(`Alert ${alertId} not found when fetching interactions`);
         return [];
       }
       

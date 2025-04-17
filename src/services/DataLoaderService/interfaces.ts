@@ -32,21 +32,34 @@ export interface OrbitalMarkers {
 }
 
 /**
- * Base interface for all celestial entities
+ * Base interface for all celestial entities in the new format
  */
 export interface CelestialEntity {
+  id: string;
   name: string;
+  display_name: string;
   type: string;
-  position: Position;
-  arrivalRadius: number;
-  atmoHeight: number;
-  obstructionRadius: number;
-  orbitalMarkers: OrbitalMarkers;
-  rotation: Rotation;
+  parent?: string;
   size: number;
-  system_entity_name: string;
+  arrivalRadius: number;
+  obstructionRadius: number;
+  atmoHeight?: number;
+  jurisdiction?: string;
+  adoptionRadius?: number;
+  position_x?: number;
+  position_y?: number;
+  position_z?: number;
+  rotation_x?: number;
+  rotation_y?: number;
+  rotation_z?: number;
+  rotation_w?: number;
+  description?: string;
+  habitable?: boolean;
+  minimum_orbit_alt?: number;
+  maximum_orbit_alt?: number;
+  qt_travel_alt?: number;
+  position_source?: string;
   children?: CelestialEntity[];
-  absolutePosition?: Position; // Computed absolute position property
 }
 
 /**
@@ -55,15 +68,18 @@ export interface CelestialEntity {
 export interface ProcessedEntity {
   id: string;
   name: string;
+  display_name: string;
   type: string;
   parent: string | null;
   relativePosition: Position;
   absolutePosition: Position;
   arrivalRadius: number;
-  atmoHeight: number;
+  atmoHeight?: number;
   obstructionRadius: number;
   size: number;
-  system_entity_name: string;
+  jurisdiction?: string;
+  description?: string;
+  habitable?: boolean;
   children: string[]; // Array of child entity IDs
 }
 

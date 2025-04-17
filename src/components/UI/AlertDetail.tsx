@@ -417,12 +417,12 @@ const AlertDetail: React.FC = () => {
               <div className="route-details">
                 <div className="location-item">
                   <span className="label">From:</span>
-                  <span className="value">{getCelestialName(alert.originId)}</span>
+                  <span className="value">{alert.originName || getCelestialName(alert.originId)}</span>
                 </div>
                 
                 <div className="location-item">
                   <span className="label">To:</span>
-                  <span className="value">{getCelestialName(alert.destinationId)}</span>
+                  <span className="value">{alert.destinationName || getCelestialName(alert.destinationId)}</span>
                 </div>
                 
                 {alert.distanceTraveled && alert.distanceUnit && (
@@ -437,7 +437,7 @@ const AlertDetail: React.FC = () => {
                 {alert.nearestCelestialId && (
                   <div className="location-item">
                     <span className="label">Nearest Object:</span>
-                    <span className="value">{getCelestialName(alert.nearestCelestialId)}</span>
+                    <span className="value">{alert.locationName || getCelestialName(alert.nearestCelestialId)}</span>
                   </div>
                 )}
               </div>

@@ -1,22 +1,22 @@
 import { CelestialEntity, Position } from './interfaces';
 
 /**
- * Validates that a position object has the required x, y, z properties
- * @param position The position object to validate
- * @returns True if the position is valid, false otherwise
+ * Validates that a position is defined using the new coordinate fields
+ * @param entity The entity to validate position coordinates for
+ * @returns True if the entity has valid position coordinates
  */
-export function isValidPosition(position: any): position is Position {
+export function hasValidPositionCoordinates(entity: any): boolean {
   return (
-    position &&
-    typeof position === 'object' &&
-    typeof position.x === 'number' &&
-    typeof position.y === 'number' &&
-    typeof position.z === 'number'
+    entity &&
+    typeof entity === 'object' &&
+    typeof entity.position_x === 'number' &&
+    typeof entity.position_y === 'number' &&
+    typeof entity.position_z === 'number'
   );
 }
 
 /**
- * Validates that an entity is the root Stanton entity
+ * Validates that an entity is the root Stanton entity in the new format
  * @param entity The entity to validate
  * @returns True if the entity is valid, false otherwise
  */
@@ -24,40 +24,42 @@ export function isValidRootEntity(entity: any): entity is CelestialEntity {
   return (
     entity &&
     typeof entity === 'object' &&
+    typeof entity.id === 'string' &&
     entity.name === 'Stanton' &&
-    entity.type === 'star' &&
-    isValidPosition(entity.position) &&
-    // Must have zero position for the root
-    entity.position.x === 0.0 &&
-    entity.position.y === 0.0 &&
-    entity.position.z === 0.0 &&
+    typeof entity.display_name === 'string' &&
+    entity.type.toLowerCase() === 'star' &&
     typeof entity.size === 'number' &&
     typeof entity.arrivalRadius === 'number' &&
     typeof entity.obstructionRadius === 'number' &&
-    typeof entity.atmoHeight === 'number' &&
     Array.isArray(entity.children)
   );
 }
 
 /**
- * Validates that an entity has the basic required properties
+ * Validates that an entity has the basic required properties in the new format
  * @param entity The entity to validate
  * @returns True if the entity is valid, false otherwise
  */
 export function isValidEntity(entity: any): entity is CelestialEntity {
-  return (
-    entity &&
-    typeof entity === 'object' &&
-    typeof entity.name === 'string' &&
-    entity.name.length > 0 &&
-    typeof entity.type === 'string' &&
-    entity.type.length > 0 &&
-    isValidPosition(entity.position) &&
-    typeof entity.size === 'number' &&
-    typeof entity.arrivalRadius === 'number' &&
-    typeof entity.obstructionRadius === 'number' &&
-    typeof entity.atmoHeight === 'number'
-  );
+  // Check essential fields
+  if (!entity || typeof entity !== 'object') return false;
+  if (typeof entity.id !== 'string' || !entity.id) return false;
+  if (typeof entity.name !== 'string' || !entity.name) return false;
+  if (typeof entity.type !== 'string' || !entity.type) return false;
+  
+  // Check numeric properties if present
+  if (entity.size !== undefined && typeof entity.size !== 'number') return false;
+  if (entity.arrivalRadius !== undefined && typeof entity.arrivalRadius !== 'number') return false;
+  if (entity.obstructionRadius !== undefined && typeof entity.obstructionRadius !== 'number') return false;
+  
+  // Position can be inferred from parent or derived, so it's okay if coordinates are missing
+  // as long as there's a parent reference or position_source indicating where to get positions
+  const hasPositionData = 
+    hasValidPositionCoordinates(entity) || 
+    typeof entity.parent === 'string' || 
+    typeof entity.position_source === 'string';
+  
+  return hasPositionData;
 }
 
 /**

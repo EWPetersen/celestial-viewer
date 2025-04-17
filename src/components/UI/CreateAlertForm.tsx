@@ -77,7 +77,13 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
         name: poi.name
       }));
       
-      setCelestialBodies([...bodies, ...pois]);
+      // Add jump points
+      const jumpPoints = celestialSystem.jumpPoints.map(jp => ({
+        id: jp.id,
+        name: `Jump Point: ${jp.name}`
+      }));
+      
+      setCelestialBodies([...bodies, ...pois, ...jumpPoints]);
     }
   }, [celestialSystem]);
   
@@ -762,6 +768,9 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
     setIsSubmitting(true);
     
     try {
+      // Make sure we have a valid distance unit
+      const distanceUnit = formData.distanceUnit || 'km';
+      
       const alertData = formData.type === 'interdiction' 
         ? {
             type: formData.type,
@@ -770,24 +779,40 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
             originId: formData.originId,
             destinationId: formData.destinationId,
             distanceTraveled: formData.distanceTraveled,
-            distanceUnit: formData.distanceUnit
+            distanceUnit: distanceUnit
           }
         : {
             type: formData.type as 'pvp',
             region: formData.region,
             shard: formData.shard,
             locationId: formData.locationId,
-            originId: '',
+            originId: formData.locationId, // Use location as origin for PvP alerts
             destinationId: formData.locationId,
             distanceTraveled: undefined,
             distanceUnit: undefined
           };
       
+      console.log("Submitting alert data:", alertData);
       const createdAlert = await RouteAlertService.createAlert(alertData);
+      console.log("Alert created successfully:", createdAlert);
       
-      // Remove any temporary route visualization
-      if (tempRouteVisualization) {
-        removeRouteVisualization(tempRouteVisualization);
+      // Create a visualization for the new alert
+      if (createdAlert) {
+        // Remove any temporary route visualization
+        if (tempRouteVisualization) {
+          removeRouteVisualization(tempRouteVisualization);
+        }
+        
+        // Create a new visualization with the created alert
+        const alertVisualization = createAlertVisualization(createdAlert);
+        
+        // Mark this as a new alert to focus the camera
+        alertVisualization.alertData.isNew = true;
+        
+        // Add the visualization to the system
+        addRouteVisualization(alertVisualization);
+        
+        console.log("Added visualization for new alert");
       }
       
       // Call onComplete callback if in inline mode
@@ -798,8 +823,8 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
         navigate(`/alert/${createdAlert.id}`);
       }
     } catch (err) {
-      setError('Failed to create alert. Please try again.');
       console.error('Error creating alert:', err);
+      setError('Failed to create alert. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -962,9 +987,9 @@ const CreateAlertForm: React.FC<CreateAlertFormProps> = ({ isInline = false, onC
                       required
                     >
                       <option value="">Select Unit</option>
-                      <option value="km">km</option>
-                      <option value="Mm">Mm</option>
                       <option value="Gm">Gm</option>
+                      <option value="Mm">Mm</option>
+                      <option value="km">km</option>
                     </select>
                   </div>
                   {distanceError && (

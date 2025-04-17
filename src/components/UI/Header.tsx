@@ -101,54 +101,18 @@ const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
         
-        <div className="action-buttons">
+        <div className="auth-controls">
           {isAuthenticated ? (
-            <>
-              <div className={`dropdown ${activeDropdown === 'create' ? 'active' : ''}`}>
-                <button 
-                  className="dropdown-toggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleDropdown('create');
-                  }}
-                >
-                  Create
-                </button>
-                <div className="dropdown-menu">
-                  <Link to="/create-alert" onClick={() => setActiveDropdown(null)}>Interdiction Alert</Link>
-                  <Link to="/create-alert?type=pvp" onClick={() => setActiveDropdown(null)}>PvP Alert</Link>
-                  <Link to="/create-route" onClick={() => setActiveDropdown(null)}>Smart Route</Link>
-                  <Link to="/interdiction-calculator" onClick={() => setActiveDropdown(null)}>Interdiction Calculator</Link>
-                </div>
+            <Link to="/profile" className="profile-link">
+              <div className="profile-icon">
+                {user && user.displayName ? user.displayName.charAt(0).toUpperCase() : '?'}
               </div>
-              
-              <div className={`dropdown ${activeDropdown === 'profile' ? 'active' : ''}`}>
-                <button 
-                  className="dropdown-toggle"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleDropdown('profile');
-                  }}
-                >
-                  {user?.username || user?.email}
-                </button>
-                <div className="dropdown-menu">
-                  <Link 
-                    to="/profile" 
-                    onClick={() => setActiveDropdown(null)}
-                  >
-                    Profile
-                    <small style={{ display: 'block', fontSize: '0.8em', opacity: 0.7, marginTop: '2px' }}>
-                      Sign out
-                    </small>
-                  </Link>
-                </div>
-              </div>
-            </>
+              {user && user.displayName ? user.displayName : 'Profile'}
+            </Link>
           ) : (
             <>
-              <Link to="/login" className="login-button">Login</Link>
-              <Link to="/register" className="register-button">Register</Link>
+              <Link to="/login" className="login-link">Login</Link>
+              <Link to="/register" className="register-link">Register</Link>
             </>
           )}
         </div>

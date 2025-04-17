@@ -17,6 +17,8 @@ import CreateSmartRouteForm from './components/UI/CreateSmartRouteForm';
 import InterdictionCalculatorForm from './components/UI/InterdictionCalculatorForm';
 import AlertDetail from './components/UI/AlertDetail';
 import CelestialIdMappingService from './services/CelestialIdMappingService';
+import ControlPanel from './components/UI/ControlPanel';
+import AlertListPanel from './components/UI/AlertListPanel';
 
 // AuthContext for managing authentication state across components
 export const AuthContext = createContext<{
@@ -109,12 +111,6 @@ function App() {
         // Initialize celestial ID mapping
         CelestialIdMappingService.initialize(systemData);
         
-        // Log mapping information for debugging
-        setTimeout(() => {
-          console.log('[App] Dumping celestial ID mappings for debugging:');
-          CelestialIdMappingService.logMappings();
-        }, 1000); // Delay to ensure all mappings are loaded
-        
         setIsInitialized(true);
       } catch (error) {
         console.error('Failed to initialize application:', error);
@@ -171,24 +167,6 @@ function App() {
     setActiveShard(shard);
   };
 
-  // Add a debugging hook to periodically dump celestial ID mappings
-  useEffect(() => {
-    // Only dump mappings if the system is initialized
-    if (!isInitialized) return;
-    
-    // Log mappings once initially for debugging
-    console.log('[App] Dumping celestial ID mappings for debugging:');
-    CelestialIdMappingService.logMappings();
-    
-    // Set up a periodic dump every 60 seconds to help debug mapping issues
-    const intervalId = setInterval(() => {
-      console.log('[App] Dumping celestial ID mappings for debugging:');
-      CelestialIdMappingService.logMappings();
-    }, 60000); // 60 seconds
-    
-    return () => clearInterval(intervalId);
-  }, [isInitialized]);
-
   // If the system is still loading, show a loading indicator
   if (!isInitialized) {
     return (
@@ -218,9 +196,8 @@ function App() {
                 <div className="main-content">
                   <div className="star-map-container">
                     <StarMap />
-                  </div>
-                  <div className="alerts-sidebar">
-                    <AlertList 
+                    {isAuthenticated && <ControlPanel />}
+                    <AlertListPanel 
                       activeRegion={activeRegion}
                       activeShard={activeShard}
                     />
@@ -237,11 +214,7 @@ function App() {
                 </ProtectedRoute>
               } />
               
-              <Route path="/create-alert" element={
-                <ProtectedRoute>
-                  <CreateAlertForm />
-                </ProtectedRoute>
-              } />
+              <Route path="/create-alert" element={<Navigate to="/" />} />
               
               <Route path="/create-route" element={
                 <ProtectedRoute>

@@ -8,6 +8,7 @@ import { Region } from '../models/RouteAlert';
 // Define types for our celestial data
 export interface CelestialSystem {
   systemName: string;
+  systemDisplayName: string;
   description: string;
   starType: string;
   rootId: string;
@@ -15,11 +16,13 @@ export interface CelestialSystem {
   celestialBodies: CelestialBody[];
   jumpPoints: JumpPoint[];
   pointsOfInterest: PointOfInterest[];
+  jurisdiction?: string;
 }
 
 export interface CelestialBody {
   id: string;
   name: string;
+  displayName: string;
   type: string;
   parentId: string | null;
   classification?: string;
@@ -30,13 +33,16 @@ export interface CelestialBody {
   orbit?: Orbit;
   rotation?: number;
   atmosphere?: boolean;
+  atmosphereHeight?: number; // In meters
   hasRings?: boolean;
   moons?: Moon[];
+  jurisdiction?: string;
 }
 
 export interface Moon {
   id: string;
   name: string;
+  displayName?: string;
   radius: number;
   orbit: {
     semiMajorAxis: number;
@@ -54,20 +60,26 @@ export interface Orbit {
 export interface JumpPoint {
   id: string;
   name: string;
+  displayName: string;
   type: 'jumppoint';
   parentId: string | null;
   position: Vector3;
   destinationSystem: string;
   size: number;
+  jurisdiction?: string;
 }
 
 export interface PointOfInterest {
   id: string;
   name: string;
+  displayName: string;
   type: string;
   parentId: string | null;
   position: Vector3;
   size: number;
+  description?: string;
+  jurisdiction?: string;
+  habitable?: boolean;
 }
 
 export interface Route {

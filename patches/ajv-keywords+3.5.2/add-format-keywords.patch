@@ -1,0 +1,33 @@
+module.exports = function (ajv) {
+  defFunc.definition = {
+    type: 'string',
+    inline: require('./dotjs/format'),
+    statements: true,
+    errors: true
+  };
+
+  // Add formatMinimum and formatMaximum keywords
+  ajv.addKeyword('formatMinimum', {
+    type: 'string',
+    inline: function (it, keyword, schema, parentSchema) {
+      var format = parentSchema.format;
+      return 'if (' + it.util.checkComparing('!==', format) + ') {' +
+             'return true;' +
+             '}';
+    },
+    errors: true
+  });
+
+  ajv.addKeyword('formatMaximum', {
+    type: 'string',
+    inline: function (it, keyword, schema, parentSchema) {
+      var format = parentSchema.format;
+      return 'if (' + it.util.checkComparing('!==', format) + ') {' +
+             'return true;' +
+             '}';
+    },
+    errors: true
+  });
+
+  return ajv;
+}; 

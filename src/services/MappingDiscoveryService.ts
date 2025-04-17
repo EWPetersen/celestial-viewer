@@ -20,7 +20,7 @@ class MappingDiscoveryService {
   private static instance: MappingDiscoveryService = new MappingDiscoveryService();
   
   // Current log level
-  private logLevel: LogLevel = LogLevel.WARN;
+  private logLevel: LogLevel = LogLevel.ERROR;
   
   // Mappings from alert IDs to system IDs
   private alertToSystemIdMap: Record<string, string> = {};
@@ -192,7 +192,6 @@ class MappingDiscoveryService {
    */
   public initialize(system: CelestialSystem): void {
     this.lastDebugLog = Date.now();
-    console.log(`[MappingDiscoveryService] Initializing with ${system.celestialBodies.length} celestial bodies`);
     
     this.celestialSystem = system;
     
@@ -203,7 +202,6 @@ class MappingDiscoveryService {
     system.celestialBodies.forEach(body => {
       // Skip empty or malformed data
       if (!body.id || !body.name) {
-        console.warn(`[MappingDiscoveryService] Skipping celestial body with missing data: ${JSON.stringify(body)}`);
         return;
       }
       
@@ -258,8 +256,6 @@ class MappingDiscoveryService {
     
     // Process any deferred requests
     if (this.deferredRequests.length > 0) {
-      console.log(`[MappingDiscoveryService] Processing ${this.deferredRequests.length} deferred mapping requests`);
-      
       // Process each deferred request
       this.deferredRequests.forEach(({ alertId, callback }) => {
         const systemId = this.discoverSystemId(alertId);
@@ -269,10 +265,6 @@ class MappingDiscoveryService {
       // Clear the queue
       this.deferredRequests = [];
     }
-    
-    console.log('[MappingDiscoveryService] Initialization complete with',
-                Object.keys(this.alertToSystemIdMap).length, 'mappings and',
-                this.knownUuidPrefixes.size, 'UUID prefixes');
   }
   
   /**
@@ -571,7 +563,7 @@ class MappingDiscoveryService {
     
     // Skip self-mappings as they provide no value
     if (alertId === systemId) {
-      this.log(LogLevel.WARN, `Skipping self-mapping attempt: ${alertId} -> ${systemId}`);
+      this.log(LogLevel.DEBUG, `Skipping self-mapping attempt: ${alertId} -> ${systemId}`);
       return;
     }
     
